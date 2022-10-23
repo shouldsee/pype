@@ -36,8 +36,10 @@ from pype import (
 from pype import check_write_single_target as CWST
 from pype import RuntimeObject as RO
 
+
 import io
 import os,sys,toml
+import multiprocessing
 
 def main():
     # ctl = prepare_run()
@@ -52,7 +54,9 @@ def know_gromacs(ctl):
     # CWST = check_write_single_target
     GROMACS_DGMX_GPU='CUDA'
     DGMX_THREAD_MPI='ON'
-    NCORE = 4
+
+    NCORE = multiprocessing.cpu_count() - 1
+#    NCORE = 4
 
     if 0:
         ctl.lazy_git_url_commit('http://github.com/shouldsee/spiper','6f549bd360cd77f33f30d1d7befc16348607aef1')

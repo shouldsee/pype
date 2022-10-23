@@ -4,6 +4,8 @@
 from .depend_mol import know_ngl,Controller
 ctl = Controller()
 know_ngl(ctl)
+ctl.build()
+
 from jinja2 import Template
 import jinja2
 
