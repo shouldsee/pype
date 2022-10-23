@@ -24,8 +24,9 @@ of argument-less callables.
 - typical project workflow
     - init apt deps
     - init project.sites-package
-    - run some tests, build some binaries
-    - start some servers    
+    - workload: run some tests, build some binaries
+    - start some servers
+    - watch for signal that triggers workload and sends back stats.
 
 
 ## Installation:
