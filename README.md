@@ -23,7 +23,7 @@ of argument-less callables.
 - compatible with in-package relative module import 
 - typical project workflow
     - init apt deps
-    - init project.sites-package
+    - init project.sites-package,prepare and check functions
     - workload: run some tests, build some binaries
     - start some servers
     - watch for signal that triggers workload and sends back stats.
