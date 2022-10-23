@@ -1,16 +1,11 @@
 # pype: A PYthon PlannEr
 
 
-## Objective:
-
-We seek a python suite that allows easier composition
-of build time complexities.
-
 ## Design Principles:
 
-- RuntimeObject(callee,caller) to enable low level composition
+- Functional low-level batteries: RuntimeObject(callee,caller) to enable low level composition
 of argument-less callables.
-- Batteries included for apt,git,pip
+- Buildtime high-level batteries included for apt,git,pip
 - Same language for 
    - file-based-lazy, argless, buildtime functions. reused when migrated to new env. (see "know" functions)
    - runtime functions with runtime inputs. reused when calling on a new argument.
