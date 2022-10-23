@@ -1,7 +1,9 @@
 # import os
 # __file__ = os.path.realpath(__file__)
 
-from .depend_mol import ctl; ctl.build()
+from .depend_mol import know_ngl,Controller
+ctl = Controller()
+know_ngl(ctl)
 from jinja2 import Template
 import jinja2
 

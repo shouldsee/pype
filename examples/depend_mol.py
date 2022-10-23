@@ -119,15 +119,16 @@ def know_gromacs(ctl):
 
 
 
+    ctl.lazy_pip_install('gmxapi'.split())
 
     return ctl
 
 def know_ngl(ctl):
-    ctl.lazy_pip_install('gmxapi nglview'.split())
+    ctl.lazy_pip_install('nglview'.split())
 
     # x = ctl.lazy_git_url_commit('https://github.com/nglviewer/nglview','c3fe543f6c9bf4104d9e779f5c268b643ac84ee7')
     x = ctl.lazy_git_url_commit('https://github.com/nglviewer/ngl','ffa0bacf433114bd5debaf08e3fb0cd8850daa64',name='git/ngl')
-    ctl.RWC( CWST, './node_modules/ngl/dist/ngl.js', 'npm install ngl',name='init_ngl')
+#    ctl.RWC( CWST, './node_modules/ngl/dist/ngl.js', 'npm install ngl',name='init_ngl')
     # ctl.RWC( CWST, './node_modules/ngl/dist/ngl.js', 'npm install ngl',name='init_ngl')
 
 

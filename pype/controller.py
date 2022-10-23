@@ -319,7 +319,7 @@ class Controller(object):
         # assert not isinstance(url,RO),RO
         url = RO(url)
         target = RO(url, os.path.basename)
-        def _lazy_wget(ctx,url=url):
+        def _lazy_wget(ctx,url=url,target=target):
             url = url.call()
             target = target.call()
             ret = urllib.request.urlretrieve(url, target+'.temp',)
@@ -330,11 +330,12 @@ class Controller(object):
     def lazy_apt_install(self, PACK):
         if not isinstance(PACK,(list,tuple)):
             PACK = PACK.split()
-
-
-        ret = s(f'dpkg -s {sjoin(PACK)} | grep Package:').splitlines()
-        # ret = s(f'''apt list --installed {sjoin(PACK)}''').splitlines()
-        if len(ret) >= len(PACK):
+        with open(os.devnull,'w') as devnull:
+            retval = subprocess.call(['dpkg','-s',]+list(PACK), stdout=devnull)
+        checked = retval==0
+#        ret = s(f'dpkg -s {sjoin(PACK)} | grep Package:').splitlines()
+#        checked = len(ret) >= len(PACK)
+        if int(checked):
             print(f'[SKIP]lazy_apt_install({PACK})')
         else:
 #            test_is_root()
@@ -344,7 +345,7 @@ class Controller(object):
     def lazy_pip_install(self, TARGET_LIST,pre_cmd=''):
         TARGETS = sjoin(TARGET_LIST)
         return self.RWC([is_pypack_installed, None], TARGET_LIST, f'''
-        {pre_cmd};
+        {pre_cmd}
         {SEXE} -m pip install --upgrade {TARGETS}
         ''',built=TARGET_LIST)
 
