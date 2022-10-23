@@ -19,11 +19,15 @@ of argument-less callables.
 - much more debuggable than bash scripts.
 - compatible with in-package relative module import 
 
+## Installation:
 
-## know functions
+As a python package
+
+`python3 -m pip install https://github.com/shouldsee/pype/tarball/master`
+
+## example: know functions
 
 `know` functions let a controller knows something, typically the required envrionment.
-
 
 `know_my_cli.py`
 
@@ -37,3 +41,4 @@ if __name__=='__main__':
     ctl.build()
 ```
  
+`python3 know_my_cli.py`
