@@ -4,28 +4,10 @@ REF: http://www.mdtutorials.com/gmx/lysozyme/02_topology.html
 Runtime: Approx 2 mins on a RTX3080
 '''
 from .depend_mol import ctl; ctl.build()
-from .depend_mol import check_write_single_target
+# from .depend_mol import check_write_single_target
 from pype import RuntimeObject as RO
+from pype import check_write_single_target as CWST
 
-def git_clone_commit():
-    '''
-    fetch a commit from a repository
-    '''
-
-    f'''
-    git init {target_dir}
-
-
-    # add a remote
-    git remote add origin url://to/source/repository
-
-    # fetch a commit (or branch or tag) of interest
-    # Note: the full history up to this commit will be retrieved unless
-    #       you limit it with '--depth=...' or '--shallow-since=...'
-    git fetch origin <sha1-of-commit-of-interest>
-    # reset this repository's master branch to the commit of interest
-    git reset --hard FETCH_HEAD
-    '''
 
 
 
@@ -34,7 +16,7 @@ def lazy_grace_png(TARGET,ctl=ctl):
     call grace to generate png
     '''
     SRC = TARGET[:-len('.png')]
-    return ctl.RWC(check_write_single_target, check_ctx=TARGET, run=f'grace -nxy {SRC} -hdevice PNG -hardcopy -printfile {TARGET}')
+    return ctl.RWC(CWST, check_ctx=TARGET, run=f'grace -nxy {SRC} -hdevice PNG -hardcopy -printfile {TARGET}')
 
 ctl.lazy_grace_png = lazy_grace_png
 
@@ -198,7 +180,9 @@ gen_vel                 = no        ; Velocity generation is off
 title                   = OPLS Lysozyme production MD
 ; Run parameters
 integrator              = md        ; leap-frog integrator
-nsteps                  = 500000    ; 2 * 500000 = 1000 ps (1 ns)
+; nsteps                  = 500000    ; 2 * 500000 = 1000 ps (1 ns)
+; [DEBUG]
+nsteps                  = 10000    ; 2 * 5000 = 10 ps
 dt                      = 0.002     ; 2 fs
 ; Output control
 nstxout                 = 0         ; suppress bulky .trr file by specifying
@@ -243,8 +227,7 @@ DispCorr                = EnerPres  ; account for cut-off vdW scheme
 gen_vel                 = no        ; Velocity generation is off
             ''')
 
-
-    CWST = check_write_single_target
+    # CWST = check_write_single_target
     '''
     needs to be instantiate at build time
     '''
@@ -252,7 +235,7 @@ gen_vel                 = no        ; Velocity generation is off
     #### build time dict is delayed until "build"
     #### buildtime is different from runtime in
     #### buildtime is state of
-    ctl._runtime['GMX'] = GMX = f'{ctl.nodes["gromacs"].built}/bin/gmx'
+    ctl.runtime_setter['GMX'] = GMX = f'{ctl.nodes["gromacs"].built}/bin/gmx'
     PDB_ID = ctl.runtime["PDB_ID"]
 
 
@@ -261,7 +244,6 @@ gen_vel                 = no        ; Velocity generation is off
     PDB_ID needs to be instantiate at runtime
     '''
     ctl.lazy_wget( RO( ctl.runtime, "https://files.rcsb.org/download/{PDB_ID}.pdb"))
-    # ctl.lazy_wget(  "https://files.rcsb.org/download/{PDB_ID}.pdb")
     ctl.RWC(run=write_dep_file)
     ctl.RWC(run='{GMX} pdb2gmx -f {PDB_ID}.pdb -o {PDB_ID}_processed.gro -water spce -ff charmm27')
 
