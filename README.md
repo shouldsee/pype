@@ -15,6 +15,7 @@ of argument-less callables.
    - file-based-lazy, argless, buildtime functions. reused when migrated to new env. (see "know" functions)
    - runtime functions with runtime inputs. reused when calling on a new argument.
    - allowing runtime functions to check buildtime deps when initing.
+- portable `know` functions that can be imported to compose larger systems. 
 - [TBC] simpler error messages with lineno
 - much more debuggable than bash scripts.
 - compatible with in-package relative module import 
