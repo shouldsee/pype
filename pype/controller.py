@@ -57,28 +57,93 @@ def sjoin(x,sep=' '):
 
 
 
-ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name')
+def IdentityCaller(x):
+    return x
+RuntimeRoot = object()
+class RuntimeObject(object):
+    def __new__(cls, callee, caller=None):
+    # def __init__(self, callee,caller):
+
+        if callable(caller):
+            pass
+        elif isinstance(caller,str):
+            # print(f'[RO.caller]{repr(caller)}')
+            # caller = lambda x,caller=caller:[print('[RO.str]',caller,),caller.format(**x)][-1]
+            caller = lambda x,caller=caller:[None,caller.format(**x)][-1]
+        elif caller is None:
+            caller = IdentityCaller
+        else:
+            raise NotImplementedError(repr(type(caller)))
+
+        self = super().__new__(cls)
+        self.callee = callee
+        self.caller = caller
+        return self
+
+    def call(self,i=0):
+        callee = self.callee
+        caller = self.caller
+        i = i+1
+        value = None
+
+        print(f'[RO.call,1] i:{i}, caller:{caller}, callee:{repr(callee)[:30]}, value:{repr(value)[:30]}')
+        if isinstance(callee, RuntimeObject):
+            callee = callee.call(i)
+        print(f'[RO.call,2] i:{i}, caller:{caller}, callee:{repr(callee)[:30]}, value:{repr(value)[:30]}')
+
+        value = caller(callee)
+        print(f'[RO.call,3] i:{i}, caller:{caller}, callee:{repr(callee)[:30]}, value:{repr(value)[:30]}')
+        # ,caller,callee,value)
+        return value
+
+    def __getitem__(self,key):
+        # return RuntimeObject
+        caller = (lambda x,key=key: x.__getitem__(key))
+        return RuntimeObject(self, caller)
+
+RO = RuntimeObject
+
+ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name built')
+NotInitObject = object()
 class Controller(object):
     def __init__(self):
         self.state = OrderedDict()
         self.stats = {}
+        self._runtime = {}
+        self.runtime = RO(self._runtime)
+        # self.runtime = (self._runtime)
+        # self._buildtime = {}
+
     def __getitem__(self,k):
         return self.state.__getitem__(k)
         #[k]
-    def run_node_with_control(self, control, check_ctx, run, ctx=None,name = None):
 
+    def run_node_with_control(self, control, check_ctx, run, ctx=None,name = None,built=None):
         t0 = time.time()
         # self.state[]
         check, write = control
 
 
 
-
-        check_ctx = RuntimeObject(check_ctx).call()
+        print(f'[RNWC.name]{name}')
         '''ctx could be delayed evaled if check failed'''
-        ctx = RuntimeObject(ctx).call()
-        run = RuntimeObject(run).call()
 
+        print('check_ctx')
+        check_ctx = RuntimeObject(check_ctx).call()
+        print('ctx')
+        ctx = RuntimeObject(ctx).call()
+        print('run')
+        run = RuntimeObject(run).call()
+        for k in 'run check_ctx ctx'.split():
+            print(k)
+            # v = eval(k)
+            # if not isinstance(v,RuntimeObject):
+            #     v = RuntimeObject(v)
+            # # v = v.call()
+            # exec(f'{k}=v.call()')
+            # exec(f'{k}=RuntimeObject({k}).call()')
+            v = locals()[k]
+            assert not isinstance(v, RuntimeObject),(k,v.caller,v.callee)
         '''
         if the passed is a string, then consider a command to be filled
         at runtime.
@@ -104,34 +169,56 @@ class Controller(object):
 
     def pprint_stats(self):
         pprint(self.stats)
+    @property
+    def nodes(self):
+        return self.state
+    # def buildtime(self):
+    #     return RO(self._buildtime)
     def register_node(self, control=check_write_always,
-        check_ctx=None, run=None, ctx=None, name = None, run_now = False):
+        check_ctx=None, run=None, ctx=NotInitObject, name = None, run_now = False, built=None):
+        '''
+        ctx defaults to Controller.runtime if not specified
+        '''
+        if ctx is NotInitObject:
+            # ctx = RO(self.__dict__)['runtime']
+            ctx = self.runtime
+            # ctx = RO(self.__dict__, lambda x:x['runtime'])
+            # ['runtime']
+
         assert run is not None, 'Must specify "run"'
         if name is None:
             name = '_defaul_key_%d'%(self.state.__len__())
-        self.state[name]= node = ControllerNode(control, check_ctx, run, ctx, name)
+        self.state[name]= node = ControllerNode(control, check_ctx, run, ctx, name, built)
         if run_now:
             self.run_node_with_control(*node)
     # RWC = run_node_with_control
     RWC = register_node
 
-    def run(self):
+    def run(self, runtime= None):
+        if runtime is None:
+            runtime = {}
+        self._runtime.update(runtime)
         rets = []
         for k,v in self.state.items():
             self.run_node_with_control(*v)
 #            rets.append( v())
         return rets
 
-    def build(self):
-        return self.run()
+    def build(self,*a,**kw):
+        return self.run(*a,**kw)
 
     def lazy_wget(self, url,):
+        # print(type(url))
+        # assert not isinstance(url,RO),RO
+        url = RO(url)
         target = RO(url, os.path.basename)
-        def _lazy_wget(ctx):
+        def _lazy_wget(ctx,url=url):
+            url = url.call()
+            target = target.call()
             ret = urllib.request.urlretrieve(url, target+'.temp',)
             shutil.move(target+'.temp',target)
 
-        return self.register_node(check_write_2, target, _lazy_wget, run_now=True)
+        return self.register_node(check_write_2, check_ctx=target, run=_lazy_wget)
 
     def lazy_apt_install(self, PACK):
         if not isinstance(PACK,(list,tuple)):
@@ -161,35 +248,6 @@ class ShellCaller(object):
         return f'ShellCaller(cmd="{self.cmd[:30]}")'
     def __call__(self,ctx=None):
         return s(self.cmd)
-
-RuntimeRoot = object()
-class RuntimeObject(object):
-    def __new__(cls, callee, caller=None):
-    # def __init__(self, callee,caller):
-        if isinstance(callee,RuntimeObject):
-            self = super().__new__()
-            self.callee = callee
-            if callable(caller):
-                pass
-            elif isinstance(caller,str):
-                caller = lambda x:caller.format(**x)
-            elif caller is None:
-                caller = lambda x:x
-            else:
-                raise NotImplementedError(repr(type(caller)))
-            self.caller = caller
-            return self
-        else:
-            return caller(callee)
-
-    def call(self):
-        if isinstance(callee, RuntimeObject):
-            callee = callee.call()
-        return self.caller(self.callee)
-
-    def __getitem__(self,key):
-        caller = (lambda x,key=key:x.__getitem__(key))
-        return RuntimeObject(self, caller)
 
 
 sc = ShellCaller

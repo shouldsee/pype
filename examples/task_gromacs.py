@@ -249,14 +249,19 @@ gen_vel                 = no        ; Velocity generation is off
     needs to be instantiate at build time
     '''
 
-    GMX = f'{ctl.build["gromacs"].ctx}/bin/gmx'
+    #### build time dict is delayed until "build"
+    #### buildtime is different from runtime in
+    #### buildtime is state of
+    ctl._runtime['GMX'] = GMX = f'{ctl.nodes["gromacs"].built}/bin/gmx'
     PDB_ID = ctl.runtime["PDB_ID"]
+
 
     ### getting variable from vain.
     '''
     PDB_ID needs to be instantiate at runtime
     '''
     ctl.lazy_wget( RO( ctl.runtime, "https://files.rcsb.org/download/{PDB_ID}.pdb"))
+    # ctl.lazy_wget(  "https://files.rcsb.org/download/{PDB_ID}.pdb")
     ctl.RWC(run=write_dep_file)
     ctl.RWC(run='{GMX} pdb2gmx -f {PDB_ID}.pdb -o {PDB_ID}_processed.gro -water spce -ff charmm27')
 

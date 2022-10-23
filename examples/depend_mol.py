@@ -33,7 +33,9 @@ from pype import (
 	check_write_pypack,
 	DefaultWriter,
     Controller,
+    RuntimeObject,
 	)
+RO = RuntimeObject
 
 import os,sys,toml
 import toml
@@ -42,18 +44,16 @@ def main():
 	# ctl = prepare_run()
 	ctl.run()
 	ctl.pprint_stats()
-
 def prepare_run():
-    '''
+	'''
     This dependency script has its variable from file system
     '''
 	ctl = Controller()
 	RWC = ctl.register_node
 	GROMACS_DGMX_GPU='CUDA'
 	NCORE = 4
-
-	ret = ctl.lazy_wget( "https://files.rcsb.org/download/1PGB.pdb")
-
+	# ret = ctl.lazy_wget( RO("https://files.rcsb.org/download/1PGB.pdb" ))
+	# ret = ctl.lazy_wget( ("https://files.rcsb.org/download/1PGB.pdb" ))
 	ctl.lazy_apt_install('libopenmpi-dev libfftw3-dev grace')
 	TARGETS = ['mpi4py']
 	RWC(check_write_pypack, TARGETS,run = f'''
@@ -71,7 +71,7 @@ def prepare_run():
 	   -DGMX_GPU={GROMACS_DGMX_GPU} \
 		-DCMAKE_C_COMPILER=`which mpicc` -DCMAKE_CXX_COMPILER=`which mpic++`'
 
-    RWC(check_write_1, TARGET+'.done', (f'''
+	RWC(check_write_1, TARGET+'.done', (f'''
 	TARGET={TARGET}
 	set -e
 	# Build and install thread-MPI GROMACS to your home directory.
@@ -80,7 +80,7 @@ def prepare_run():
 	 cmake --trace {CFLAGS}
 	 make -j{NCORE} install
 	popd
-	'''), name ='gromacs',ctx=TARGET)
+	'''), name ='gromacs', built=TARGET)
 
 	### CMake 3.16.3 or higher is required
 	if s('cmake --version')< 'cmake version 3.16.3':
