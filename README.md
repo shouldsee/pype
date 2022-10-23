@@ -12,8 +12,21 @@ of argument-less callables.
    - allowing runtime functions to check buildtime deps when initing.
 - portable `know` functions that can be imported to compose larger systems. 
 - [TBC] simpler error messages with lineno, much more debuggable than bash scripts.
+- [TBC] log control
+- [TBC] typical project structures? 
+    - pype eats python functions, which needs to be installed before using. import a function from http is risky?
+    - onefile pype: needs to specify python depedencies before eating the actual `know` function
+    - example situation: 
+       - pype A lazy git install pype B. pype B lazy git install pype C. encourage explicit management of a package index,
+       where a pacakge is just a folder in the index like 'sites-package'.
 - Linear chain execution within pype.
 - compatible with in-package relative module import 
+- typical project workflow
+    - init apt deps
+    - init project.sites-package
+    - run some tests, build some binaries
+    - start some servers    
+
 
 ## Installation:
 
