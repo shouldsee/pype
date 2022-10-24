@@ -351,7 +351,7 @@ def print_tb_frames(frame_gen,limit=None,file=None):
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
-ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name built')
+ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name built stack_ele')
 NotInitObject = object()
 class Controller(object):
     def __init__(self):
@@ -369,7 +369,7 @@ class Controller(object):
 
         #[k]
 
-    def run_node_with_control(self, control, check_ctx, run, runtime=None,name = None,built=None, frame=None):
+    def run_node_with_control(self, control, check_ctx, run, runtime=None,name = None,built=None, stack_ele=None,frame=None):
         '''
         control: (checker, writer)
         checker:
@@ -399,25 +399,28 @@ class Controller(object):
 
         '''ctx could be delayed evaled if check failed'''
 
-        check_ctx = RuntimeObject(check_ctx, None, frame).call()
         runtime   = RuntimeObject(runtime, None, frame).call()
-        run       = RuntimeObject(run, None, frame).call()
-        '''
-        if the passed is a string, then consider a command to be filled
-        at runtime.
-        '''
+        check_ctx = RuntimeObject(check_ctx, None, frame).call()
+
         if isinstance(run, str):
-            cmd = run.format(**runtime)
-            run = sc(cmd)
+            '''
+            if the passed is a string, consider a command to be filled
+            at runtime.
+            '''
+            # RO(run,)
+            # run = lambda ctx,run=run: s(run.format(**ctx))
+            tocall = RO(runtime, lambda x,run=run:run.format(**x))
+            tocall = tocall.chain_with(s)
+        else:
+            run = RuntimeObject(run, None, frame).call()
+            tocall = RO(runtime, run)
+
 
         if self._use_pdb:
             import pdb;pdb.set_trace()
 
         check = RuntimeObject(check).call()
 
-        # if isinstance(check,callacbkebool):
-        #     checked = check
-        # else:
         '''
         Dangerous and needs a way to chain to the left?
         '''
@@ -427,26 +430,36 @@ class Controller(object):
             checked = check
         ## int is much safer than bool
         checked = int(checked)
+
+        def msg(head):
+            f,lineno = stack_ele
+            co = f.f_code
+            eprint('')
+            eprint(f'{head}(name={name!r}, code {co.co_name!r}, file={co.co_filename!r}, line {lineno!r})')
+            print_tb_frames([stack_ele])
+
         if checked==1:
-            print(f'[SKIP]{repr(run)}({repr(runtime)})')
+            
+            # print(f'[SKIP]({name},{co.co_name},)')
+            # print(f'[SKIP]({name},{stack_ele})')
+            msg('[SKIP]')
         else:
-            print(f'[RUNN]{repr(run)}({repr(runtime)})')
-            run(runtime)
+            msg('[RUNN]')
+            # print(f'[RUNN]({name},{stack_ele})')
+            # run(runtime)
+            tocall.call()
             write(check_ctx, )
-        # except Exception as e:
-        #     eprint('-'*30)
-        #     eprint('Outer loop traceback:')                        
-        #     for line in traceback.format_stack(frame):
-        #         eprint(line.strip())
-        #     sys.tracebacklimit = 0
-        #     raise e
 
         t1 = time.time()
         k = repr(run)[:30]
         dt = t1-t0
         self.stats[k] = (k, int(dt*10**3), int(dt *10**6) % 1000)
+        return checked
 
-
+        '''
+        [return-value?]
+        is affected by check()
+        '''
     def pprint_stats(self):
         pprint(self.stats)
 
@@ -460,10 +473,18 @@ class Controller(object):
 
 
     def register_node(self, control=check_write_always,
-        check_ctx=None, run=None, ctx=NotInitObject, name = None, run_now = False, built=None):
+        check_ctx=None, run=None, ctx=NotInitObject, name = None, run_now = False, built=None, frame=None):
         '''
         ctx defaults to Controller.runtime if not specified
+        frame: 
+          the frame would be used to format traceback.
+          if calling RWC within some function, better to pass down calling context 
+          to level the traceback
+
+
         '''
+        frame = DFRAME(frame)
+        stack_ele = (frame,int(frame.f_lineno))
         if ctx is NotInitObject:
 
             #### this does not work yet
@@ -481,20 +502,26 @@ class Controller(object):
         assert run is not None, 'Must specify "run"'
         if name is None:
             name = '_defaul_key_%d'%(self.state.__len__())
-        self.state[name]= node = ControllerNode(control, check_ctx, run, ctx, name, built)
+        self.state[name]= node = ControllerNode(control, check_ctx, run, ctx, name, built, stack_ele)
         if run_now:
+            '''
+            
+            '''
             self.run_node_with_control(*node)
         return node
     # RWC = run_node_with_control
     RWC = register_node
     def run(self, runtime= None):
+        '''
+        return: a list indicates whether each step is skipped or executed
+        '''
         if runtime is None:
             runtime = {}
         self._runtime.update(runtime)
         rets = []
         for k,v in self.state.items():
-            self.run_node_with_control(*v)
-#            rets.append( v())
+            ret = self.run_node_with_control(*v)
+            rets.append((k,ret))
         return rets
 
     def build(self,*a,**kw):
@@ -517,26 +544,27 @@ class Controller(object):
         return self.register_node(check_write_2, check_ctx=target, run=_lazy_wget, built=target)
 
     def lazy_apt_install(self, PACK):
-        if not isinstance(PACK,(list,tuple)):
-            PACK = PACK.split()
-        with open(os.devnull,'w') as devnull:
-            retval = subprocess.call(['dpkg','-s',]+list(PACK), stdout=devnull)
-        checked = retval==0
-#        ret = s(f'dpkg -s {sjoin(PACK)} | grep Package:').splitlines()
-#        checked = len(ret) >= len(PACK)
-        if int(checked):
-            print(f'[SKIP]lazy_apt_install({PACK})')
-        else:
-#            test_is_root()
-            s(f'''{"sudo" if not is_root() else ''} apt install -y {sjoin(PACK)}''')
-        return
+        def checker(x,PACK=PACK):
+            if not isinstance(PACK,(list,tuple)):
+                PACK = PACK.split()
+            with open(os.devnull,'w') as devnull:
+                retval = subprocess.call(['dpkg','-s',]+list(PACK), stdout=devnull)
+            checked = retval==0
+            return checked
+        return self.RWC([checker,None],
+            run= f'''{"sudo" if not is_root() else ''} apt install -y {sjoin(PACK)}''',
+            frame=FRAME(1),
+            )
 
     def lazy_pip_install(self, TARGET_LIST,pre_cmd=''):
         TARGETS = sjoin(TARGET_LIST)
         return self.RWC([is_pypack_installed, None], TARGET_LIST, f'''
         {pre_cmd}
         {SEXE} -m pip install --upgrade {TARGETS}
-        ''',built=TARGET_LIST)
+        ''',built=TARGET_LIST,
+        frame=FRAME(1),)
+
+        # frame=FRAME(1))
 
 
     def lazy_git_url_commit(self, url, commit, target_dir=None,name=None):
@@ -551,7 +579,8 @@ class Controller(object):
 
         return self.RWC(
             [check_git_url_commit(url,commit,target_dir),None],
-            run = run_git_url_commit(url,commit,target_dir), built=target_dir,name=name)
+            run = run_git_url_commit(url,commit,target_dir), built=target_dir,name=name,
+            frame=FRAME(1),)
 
 ctrl = Controller()
 # RWC = ctrl.run_node_with_control
@@ -618,17 +647,7 @@ def run_load_toml_env(ctx=None, keys:list=None, toml_file: str=None, os=os):
     for k in keys:
         k =k
         os.environ[k] = xd[k]
-    # else:
-    #     for k in xd
-
-    # for line in template.strip().splitlines():
-    #     k = line.split('=',1)
-    #     if len(k)!=2:
-    #         continue
-    #
-    #     k =k[0].strip()
-    #     if k:
-    #         os.environ[k] = xd[k]
+    
 def config_extract_keys(template:str):
     '''
     extract keys from a bash-config like file
@@ -681,14 +700,14 @@ def check_git_url_commit(url,commit,target_dir):
         ) &
         (
             RO(None,sc(f'''git -C {target_dir} config --get remote.origin.url''')).strip()
-            .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
+            # .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
             ==url
         ) &
         (
             RO(None,sc(f'git -C {target_dir} rev-parse HEAD')).strip()
-            .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
+            # .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
             ==commit)
-
-        ).chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
+        )
+        # ).chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
 
     return caller

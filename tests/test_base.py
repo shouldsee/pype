@@ -1,10 +1,20 @@
 import pytest
 from pype import Controller,RO,s,THIS
 from pype import NonConcreteValueError
-def know_my_cli(ctl):
-    ctl.lazy_apt_install('nano git proxychains4'.split())
-    ctl.lazy_pip_install('toml pyyaml'.split())
-    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype','598b7a2b1201d138260c22119afd7b4d5449fe97')
+#from .examples.know_my_cli import know_my_cli
+
+def test_know_my_cli():
+    '''
+    Better to cleanup before running
+    '''
+    def know_my_cli(ctl):
+        ctl.lazy_apt_install('nano git proxychains4'.split())
+#        ctl.lazy_pip_install('toml pyyaml'.split())
+        ctl.lazy_git_url_commit('https://github.com/shouldsee/pype','598b7a2b1201d138260c22119afd7b4d5449fe97',
+            target_dir='temp_pype')
+        return ctl
+    ctl = know_my_cli(Controller())
+    ctl.build()
 
 def test_error(capfd):
     myexe = Exception('foobar')
@@ -30,6 +40,32 @@ Evaltime traceback:
 
     out, err = capfd.readouterr()
     assert_similar_tb(expected, err)
+
+
+
+def test_error_simple(capfd):
+    myexe = Exception('foobar')
+    with pytest.raises(Exception) as einfo:
+        x = RO(None)
+        x = RO(x,lambda x: (_ for _ in ()).throw(myexe))
+        x = RO(x,lambda x:[][1])
+        x = RO(x,lambda x:[x])
+        x.call()
+    assert einfo.value is myexe
+    expected = '''
+------------------------------
+Evaltime traceback:
+  File "/repos/shared/repos/pype/tests/test_base.py", line 40, in test_error_simple
+    x = RO(x,lambda x: (_ for _ in ()).throw(myexe))
+  File "/repos/shared/repos/pype/tests/test_base.py", line 41, in test_error_simple
+    x = RO(x,lambda x:[][1])
+  File "/repos/shared/repos/pype/tests/test_base.py", line 42, in test_error_simple
+    x = RO(x,lambda x:[x])
+------------------------------
+'''
+    out, err = capfd.readouterr()
+    assert_similar_tb(expected, err)
+
 
 
 
