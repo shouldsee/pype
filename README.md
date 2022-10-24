@@ -11,7 +11,8 @@ of argument-less callables.
    - runtime functions with runtime inputs. reused when calling on a new argument.
    - allowing runtime functions to check buildtime deps when initing.
 - portable `know` functions that can be imported to compose larger systems. 
-- [TBC] simpler error messages with lineno, much more debuggable than bash scripts.
+- [DONE] simpler error messages with lineno, much more debuggable than bash scripts.
+   - added: `evaltime traceback` to show which RuntimeObject chain throws the error
 - [TBC] log control
 - [TBC] typical project structures? 
     - pype eats python functions, which needs to be installed before using. import a function from http is risky?

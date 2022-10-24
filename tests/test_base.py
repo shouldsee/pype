@@ -19,11 +19,11 @@ def test_error(capfd):
     expected = '''
 ------------------------------
 Evaltime traceback:
-  File "/repos/shared/repos/pype/examples/test_base.py", line 14, in test_error
+  File "/repos/shared/repos/pype/tests/test_base.py", line 14, in test_error
     x = x.chain_with(lambda x: (_ for _ in ()).throw(myexe))
-  File "/repos/shared/repos/pype/examples/test_base.py", line 15, in test_error
+  File "/repos/shared/repos/pype/tests/test_base.py", line 15, in test_error
     x = x.chain_with(lambda x:[][1])
-  File "/repos/shared/repos/pype/examples/test_base.py", line 16, in test_error
+  File "/repos/shared/repos/pype/tests/test_base.py", line 16, in test_error
     x = x.chain_with(lambda x:[x])
 ------------------------------
 '''
@@ -55,9 +55,12 @@ def assert_similar_tb(expected, got):
     print('[GOT]')
     print(got)
     gots = got.splitlines()
-    for i,l in enumerate(expected.splitlines()):
+    for i,el in enumerate(expected.splitlines()):
         gotline = gots[i]
-        pre = l.strip('-').split('line')[0]
+        if ('File "' in el) and ("line" in el):
+            print(f'[skip file lineno]{el}')
+            continue
+        pre = el.strip('-').split('line')[0]
         assert gotline.startswith(pre),(gotline,pre)
         # assert l.split('')
 
@@ -69,9 +72,9 @@ def test_print_stack(capfd):
     expected = '''
 ------------------------------
 Evaltime traceback:
-  File "/repos/shared/repos/pype/examples/test_base.py", line 56, in test_print_stack
+  File "/repos/shared/repos/pype/tests/test_base.py", line 56, in test_print_stack
     x = x.chain_with(lambda y,x=x:x.print_call_stack())
-  File "/repos/shared/repos/pype/examples/test_base.py", line 57, in test_print_stack
+  File "/repos/shared/repos/pype/tests/test_base.py", line 57, in test_print_stack
     x = x.chain_with(lambda x:(x,3))
 '''.lstrip()
 
