@@ -544,9 +544,9 @@ class Controller(object):
         return self.register_node(check_write_2, check_ctx=target, run=_lazy_wget, built=target)
 
     def lazy_apt_install(self, PACK):
+        if not isinstance(PACK,(list,tuple)):
+            PACK = PACK.split()
         def checker(x,PACK=PACK):
-            if not isinstance(PACK,(list,tuple)):
-                PACK = PACK.split()
             with open(os.devnull,'w') as devnull:
                 retval = subprocess.call(['dpkg','-s',]+list(PACK), stdout=devnull)
             checked = retval==0
