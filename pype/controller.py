@@ -12,6 +12,8 @@ import io
 SEXE = sys.executable
 from collections import OrderedDict,namedtuple
 def s(cmd,shell=True,raw=False):
+    if 'set -e' not in cmd:
+        cmd = 'set -e; ' + cmd
     ret= subprocess.check_output(cmd,shell=shell,executable='/bin/bash')
     if not raw:
         ret = ret.decode()
@@ -25,7 +27,6 @@ def test_is_root():
     if not is_root():
         sys.exit("[Exit]:You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
     return
-
 
 
 def check_done_file_1(fn,):
@@ -56,6 +57,25 @@ check_write_pypack = (is_pypack_installed, DefaultWriter)
 def sjoin(x,sep=' '):
     return sep.join(x)
 
+'''
+https://stackoverflow.com/a/1140513/8083313
+'''
+def DFRAME(frame):
+    frame = FRAME(2) if frame is None else frame
+    return frame
+def FRAME( back = 0 ):
+    return sys._getframe( back + 1 )
+def LINE( back = 0 ):
+    return sys._getframe( back + 1 ).f_lineno
+def FILE( back = 0 ):
+   return sys._getframe( back + 1 ).f_code.co_filename
+def FUNC( back = 0):
+    return sys._getframe( back + 1 ).f_code.co_name
+def WHERE( back = 0 ):
+   frame = sys._getframe( back + 1 )
+   return "%s/%s %s()" % ( os.path.basename( frame.f_code.co_filename ), 
+                           frame.f_lineno, frame.f_code.co_name )
+
 
 
 def IdentityCaller(x):
@@ -64,16 +84,25 @@ RuntimeRoot = object()
 THIS = object()
 from functools import partial
 import operator
+import inspect,traceback
+class InnerException(Exception):
+    pass
+class NonConcreteValueError(RuntimeError):
+    pass
+# def FORMAT(x):
+#     return lambda y,x=x:x.format(**y)
 class RuntimeObject(object):
     '''
     Bind caller to callee and delay the evaluation
     [TBC] adding lineno where binding happened for debugging
     '''
-    def __new__(cls, callee, caller=None):
+    def __new__(cls, callee, caller=None, frame= None):
 
         if callable(caller):
             pass
         elif isinstance(caller,str):
+            # caller = caller.format
+            # caller = FORMAT(caller)
             # print(f'[RO.caller]{repr(caller)}')
             # caller = lambda x,caller=caller:[print('[RO.str]',caller,),caller.format(**x)][-1]
             caller = lambda x,caller=caller:[None,caller.format(**x)][-1]
@@ -85,9 +114,24 @@ class RuntimeObject(object):
         self = super().__new__(cls)
         self.callee = callee
         self.caller = caller
+        self.frame  = DFRAME(frame)
+        self.lineno = int(self.frame.f_lineno)
+        self.stack  = []
+        # self.frame  = FRAME(1)
         return self
 
-    def chain_with(self, other,*a,**kw):
+    def start_pdb(self):
+        def _f(*args,__self=self,**kw):
+            self=__self
+            pcs = self.print_call_stack
+            pcs()
+            import pdb; pdb.set_trace()
+        return self.chain_with(_f, _frame=FRAME(1))
+
+
+
+
+    def chain_with(self, other, *a,_frame=None,**kw):
         # a =
         ct = []
         for k,v in kw.items():
@@ -107,42 +151,100 @@ class RuntimeObject(object):
             setter(k,x)
             return other(*a,**kw)
 
-        return RuntimeObject(self, caller)
+        return RuntimeObject(self, caller, frame = DFRAME(_frame))
 
-    def __call__(self):
-        return self.call()
+    def __call__(self, stack = None):
+        return self.call(stack)
+    def print_call_stack(self, stack = None,header='Evaltime traceback:'):
+        if stack is None:
+            stack = self.stack[::-1]
+            if not len(stack):
+                raise Exception('Stack not specified yet!')
+        # pprint(stack)
+        eprint('-'*30)
+        # eprint(inspect.stack().__len__())
+        eprint(header)                        
+        print_tb_frames(stack)
+        return 
 
-    def call(self):
+    @property
+    def stackele(self):
+        return (self.frame, self.lineno)
+
+    def call(self, stack=None, strict=True):        
+        '''
+        Strict mode does not allow chaining mulitple runtime chain.
+        A single call message must echo concrete values.
+        
+        running in strict mode promise the result of .call()
+        would be concrete values, where nostrict mode does not 
+        '''
+        
+        # frame = DFRAME(frame)
         callee = self.callee
         caller = self.caller
         value = None
-        # print(f'[RO.call,1] i:{i}, caller:{caller}, callee:{repr(callee)[:30]}, value:{repr(value)[:30]}')
-        if isinstance(callee, RuntimeObject):
-            callee = callee.call()
-        # print(f'[RO.call,2] i:{i}, caller:{caller}, callee:{repr(callee)[:30]}, value:{repr(value)[:30]}')
-        value = caller(callee)
-        # print(f'[RO.call,3] i:{i}, caller:{caller}, callee:{repr(callee)[:30]}, value:{repr(value)[:30]}')
-        # ,caller,callee,value)
-        '''
-        the result of calling may also be a delayed value.
-        '''
-        if isinstance(value, RuntimeObject):
-            value = value.call()
 
-        '''
-        An intact callchain should not return a runtime object
-        '''
-        assert not isinstance(value, RO), f'Must NOT return RuntimeObject {value}'
-        return value
+        if stack is None:
+            stack = []
+            # print('[init.stack]')
+        # print('[appending to stack]')
+        # pprint(
+        #     (FRAME(1),
+        #     self.caller.__name__,
+        #     self.frame.f_code.co_filename,
+        #     self.lineno))
+        #     # {FRAME(1)},{self.frame}')
+        self.stack = stack
+        stacknew = stack + [(self.frame, self.lineno)]
+        if isinstance(callee, RuntimeObject):
+            callee = callee.call(stacknew, strict)
+            
+        try:
+            # print_tb_frames([(self.frame, self.lineno)])
+            value = caller(callee)
+            
+            '''
+            the result of calling may also be a delayed value.
+            But this is a bit advanced and I am not sure  how to manage this 
+            signal yet. This is usually indicative of a broken calltree
+            '''
+            # if isinstance(value, RuntimeObject):
+            #     value = value.call(stacknew,strict)
+            if strict and isinstance(value, RuntimeObject):                
+                value.print_call_stack([value.stackele],header=f'Result of call is still an RO empty placeholder. ')
+                raise NonConcreteValueError(f'Must NOT return RuntimeObject {value}')
+                # assert not isinstance(value, RO), f'Must NOT return RuntimeObject {value}'
+            # self.stack = stack
+
+            '''
+            [TBC] echoing back the value. maybe 
+            '''
+            return value            
+        except Exception as e:
+            self.stack = stacknew
+            # if isinstance(e,InnerException):
+            #     pass
+            # else:
+            # print(f'[L]{len(stack)}')
+            self.print_call_stack()            
+            eprint('-'*30)
+            raise e
+
+
+
+
     def strip(self,): return RO(self, (lambda x:x.strip()))
 
     def __getitem__(self,key):
-        caller = (lambda x,key=key: x.__getitem__(RO(key)() ) )
-        return RuntimeObject(self, caller)
+        frame = FRAME(1)
+        caller = (lambda x,key=key: x.__getitem__(RO(key,None, frame)() ) )
+        return RuntimeObject(self, caller, frame)
 
     def __lt__(self,b):
-        caller = lambda x: x.__lt__(RO(b)())
-        return RuntimeObject(self, caller)
+        frame = FRAME(1)
+        caller = lambda x: x.__lt__(RO(b,None,frame)())
+        return RuntimeObject(self, caller,frame)
 
     def __le__(self,b):
         caller = lambda x: x.__le__(RO(b)())
@@ -183,6 +285,72 @@ def TransformDummmyRun(*a,**kw):
     return func
 RO = RuntimeObject
 
+
+# import traceback as tb
+# import traceback
+from traceback import *
+from traceback import print_list,linecache,FrameSummary
+# from traceback import StackSummary
+# import linecache
+class MyStackSummary(StackSummary):
+    """A stack of frames."""
+    @classmethod
+    def extract_from_codes(klass, co_gen, *, limit=None, lookup_lines=False,
+            capture_locals=False):
+        """Create a StackSummary from a traceback or stack object.
+
+        :param frame_gen: A generator that yields (frame, lineno) tuples to
+            include in the stack.
+        :param limit: None to include all frames or the number of frames to
+            include.
+        :param lookup_lines: If True, lookup lines for each frame immediately,
+            otherwise lookup is deferred until the frame is rendered.
+        :param capture_locals: If True, the local variables from each frame will
+            be captured as object representations into the FrameSummary.
+        """
+        frame_gen = co_gen
+        assert lookup_lines is False
+        if limit is None:
+            limit = getattr(sys, 'tracebacklimit', None)
+            if limit is not None and limit < 0:
+                limit = 0
+        if limit is not None:
+            if limit >= 0:
+                frame_gen = itertools.islice(frame_gen, limit)
+            else:
+                frame_gen = collections.deque(frame_gen, maxlen=-limit)
+
+        result = klass()
+        fnames = set()
+        # for f, lineno in frame_gen:
+        for co in frame_gen:
+            lineno = co.co_firstlineno
+            filename = co.co_filename
+            name = co.co_name
+            f_locals = {}
+            f_globals = {}
+            fnames.add(filename)
+            linecache.lazycache(filename, f_globals)
+            # Must defer line lookups until we have called checkcache.
+            result.append(FrameSummary(
+                filename, lineno, name, lookup_line=False, locals=f_locals))
+        for filename in fnames:
+            linecache.checkcache(filename)
+        # If immediate lookup was desired, trigger lookups now.
+        if lookup_lines:
+            for f in result:
+                f.line
+        return result
+    
+def print_tb_codes(codes,limit=None,file=None):
+    return print_list(MyStackSummary.extract_from_codes(codes,limit=limit), file=file)
+def print_tb_frames(frame_gen,limit=None,file=None):
+    return print_list( StackSummary.extract(frame_gen, limit=limit), file=file)
+
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name built')
 NotInitObject = object()
 class Controller(object):
@@ -201,31 +369,45 @@ class Controller(object):
 
         #[k]
 
-    def run_node_with_control(self, control, check_ctx, run, ctx=None,name = None,built=None):
+    def run_node_with_control(self, control, check_ctx, run, runtime=None,name = None,built=None, frame=None):
+        '''
+        control: (checker, writer)
+        checker:
+          decide whether the function needs to be run
+        writer: 
+          bookkeeping function to satisfy control. 
+          not much different from run 
+        run: payload to run if checker failed
+        runtime:
+          default to runtime.
+        name:
+          name of node run
+        built:
+          meta information once built
+        '''
         t0 = time.time()
+        # try:
+        frame=DFRAME(frame)
+        # frame = FRAME(0)
         # self.state[]
         check, write = control
         if check is None:
             check = DefaultChecker
         if write is None:
             write = DefaultWriter
+        
 
-
-        # print(f'[RNWC.name]{name}')
         '''ctx could be delayed evaled if check failed'''
 
-        # print('check_ctx')
-        check_ctx = RuntimeObject(check_ctx).call()
-        # print('ctx')
-        ctx = RuntimeObject(ctx).call()
-        # print('run')
-        run = RuntimeObject(run).call()
+        check_ctx = RuntimeObject(check_ctx, None, frame).call()
+        runtime   = RuntimeObject(runtime, None, frame).call()
+        run       = RuntimeObject(run, None, frame).call()
         '''
         if the passed is a string, then consider a command to be filled
         at runtime.
         '''
         if isinstance(run, str):
-            cmd = run.format(**ctx)
+            cmd = run.format(**runtime)
             run = sc(cmd)
 
         if self._use_pdb:
@@ -246,11 +428,18 @@ class Controller(object):
         ## int is much safer than bool
         checked = int(checked)
         if checked==1:
-            print(f'[SKIP]{repr(run)}({repr(ctx)})')
+            print(f'[SKIP]{repr(run)}({repr(runtime)})')
         else:
-            print(f'[RUNN]{repr(run)}({repr(ctx)})')
-            run(ctx)
+            print(f'[RUNN]{repr(run)}({repr(runtime)})')
+            run(runtime)
             write(check_ctx, )
+        # except Exception as e:
+        #     eprint('-'*30)
+        #     eprint('Outer loop traceback:')                        
+        #     for line in traceback.format_stack(frame):
+        #         eprint(line.strip())
+        #     sys.tracebacklimit = 0
+        #     raise e
 
         t1 = time.time()
         k = repr(run)[:30]
@@ -270,8 +459,6 @@ class Controller(object):
         return self._runtime
 
 
-    # def buildtime(self):
-    #     return RO(self._buildtime)
     def register_node(self, control=check_write_always,
         check_ctx=None, run=None, ctx=NotInitObject, name = None, run_now = False, built=None):
         '''
@@ -284,7 +471,9 @@ class Controller(object):
             #### the caller
             #### the callee is evaluated before apply to caller
 
-            ctx = RO(self.__dict__)['runtime']
+            # ctx = RO(self.__dict__)['runtime']
+            # ctx = RO(self._runtime)
+            ctx = self.runtime
             # ctx = self.runtime
             # ctx = RO(self.__dict__, lambda x:x['runtime'])
             # ['runtime']
@@ -370,9 +559,7 @@ run_node_with_control = ctrl.run_node_with_control
 RWC = run_node_with_control
 
 class ShellCaller(object):
-    def __init__(self,cmd):
-        if 'set -e' not in cmd:
-            cmd = 'set -e; ' + cmd
+    def __init__(self, cmd):
         self.cmd = cmd
     def __repr__(self):
         return f'ShellCaller(cmd="{self.cmd[:30]}")'
