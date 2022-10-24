@@ -12,5 +12,3 @@ if __name__=='__main__':
     know_my_cli(ctl)
     ctl.build()
     ctl.pprint_stats()
-
-    test_strict_call()
