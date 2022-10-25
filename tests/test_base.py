@@ -104,6 +104,7 @@ def assert_similar_tb(expected, got):
     # "Hello World!"    
     # ctl.RWC(run=x)
     return 
+
 def test_print_stack(capfd):
     expected = '''
 ------------------------------
@@ -125,6 +126,29 @@ Evaltime traceback:
     x.call()            
     out, err = capfd.readouterr()
     assert_similar_tb(expected, err)
+
+def test_print_stack_cd(capfd):
+    import os
+    expected = '''
+------------------------------
+Evaltime traceback:
+  File "/repos/shared/repos/pype/tests/test_base.py", line 56, in test_print_stack
+    x = x.chain_with(lambda y,x=x:x.print_call_stack())
+  File "/repos/shared/repos/pype/tests/test_base.py", line 57, in test_print_stack
+    x = x.chain_with(lambda x:(x,3))
+'''.lstrip()
+
+
+    x = RO(None)
+    x = x.chain_with(lambda x:(x,1))
+    x = x.chain_with(lambda x:(x,2))
+    x = x.chain_with(lambda y,x=x:x.print_call_stack())
+    x = x.chain_with(lambda x:(x,3))
+    # x = x.chain_with(lambda x:[][2])
+    os.chdir('/tmp/')
+    x.call()            
+    out, err = capfd.readouterr()
+    assert_similar_tb(expected, err)    
 
     
 

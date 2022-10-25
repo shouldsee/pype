@@ -1,6 +1,8 @@
 from pype import Controller,RO,s
 def know_my_cli(ctl):
     # x = RO('echo toml pyyaml',s)
+    ctl.init_cd('cli/')
+    
     ctl.lazy_apt_install('nano git proxychains4'.split())
     ctl.lazy_pip_install(
         'toml pyyaml'.split())

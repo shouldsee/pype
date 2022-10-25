@@ -85,8 +85,10 @@ THIS = object()
 from functools import partial
 import operator
 import inspect,traceback
-class InnerException(Exception):
-    pass
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 class NonConcreteValueError(RuntimeError):
     pass
 # def FORMAT(x):
@@ -115,6 +117,7 @@ class RuntimeObject(object):
         self.callee = callee
         self.caller = caller
         self.frame  = DFRAME(frame)
+        self.filename = os.path.realpath(self.frame.f_code.co_filename)
         self.lineno = int(self.frame.f_lineno)
         self.stack  = []
         # self.frame  = FRAME(1)
@@ -127,7 +130,6 @@ class RuntimeObject(object):
             pcs()
             import pdb; pdb.set_trace()
         return self.chain_with(_f, _frame=FRAME(1))
-
 
 
 
@@ -160,16 +162,20 @@ class RuntimeObject(object):
             stack = self.stack[::-1]
             if not len(stack):
                 raise Exception('Stack not specified yet!')
+        for ele in stack:
+            assert isinstance(ele,StackElement),ele
+        # assert isinstance(stack,List[StackElement])
         # pprint(stack)
         eprint('-'*30)
         # eprint(inspect.stack().__len__())
-        eprint(header)                        
-        print_tb_frames(stack)
+        eprint(header)       
+        # print_tb_stacks(stack)
+        print_tb_frames(((x.frame,x.lineno) for x in stack))
         return 
 
     @property
-    def stackele(self):
-        return (self.frame, self.lineno)
+    def stack_ele(self):
+        return StackElement(self.frame,self.filename, self.lineno)
 
     def call(self, stack=None, strict=True):        
         '''
@@ -188,15 +194,8 @@ class RuntimeObject(object):
         if stack is None:
             stack = []
             # print('[init.stack]')
-        # print('[appending to stack]')
-        # pprint(
-        #     (FRAME(1),
-        #     self.caller.__name__,
-        #     self.frame.f_code.co_filename,
-        #     self.lineno))
-        #     # {FRAME(1)},{self.frame}')
         self.stack = stack
-        stacknew = stack + [(self.frame, self.lineno)]
+        stacknew = stack + [StackElement(self.frame,  self.filename, (self.lineno) )]
         if isinstance(callee, RuntimeObject):
             callee = callee.call(stacknew, strict)
             
@@ -212,7 +211,7 @@ class RuntimeObject(object):
             # if isinstance(value, RuntimeObject):
             #     value = value.call(stacknew,strict)
             if strict and isinstance(value, RuntimeObject):                
-                value.print_call_stack([value.stackele],header=f'Result of call is still an RO empty placeholder. ')
+                value.print_call_stack([value.stack_ele],header=f'Result of call is still an RO empty placeholder. ')
                 raise NonConcreteValueError(f'Must NOT return RuntimeObject {value}')
                 # assert not isinstance(value, RO), f'Must NOT return RuntimeObject {value}'
             # self.stack = stack
@@ -291,66 +290,67 @@ RO = RuntimeObject
 from traceback import *
 from traceback import print_list,linecache,FrameSummary
 # from traceback import StackSummary
-# import linecache
-class MyStackSummary(StackSummary):
-    """A stack of frames."""
-    @classmethod
-    def extract_from_codes(klass, co_gen, *, limit=None, lookup_lines=False,
-            capture_locals=False):
-        """Create a StackSummary from a traceback or stack object.
+# class MyStackSummary(StackSummary):
+#     """A stack of frames."""
+#     @classmethod
+#     def extract_from_codes(klass, co_gen, *, limit=None, lookup_lines=False,
+#             capture_locals=False):
+#         """Create a StackSummary from a traceback or stack object.
 
-        :param frame_gen: A generator that yields (frame, lineno) tuples to
-            include in the stack.
-        :param limit: None to include all frames or the number of frames to
-            include.
-        :param lookup_lines: If True, lookup lines for each frame immediately,
-            otherwise lookup is deferred until the frame is rendered.
-        :param capture_locals: If True, the local variables from each frame will
-            be captured as object representations into the FrameSummary.
-        """
-        frame_gen = co_gen
-        assert lookup_lines is False
-        if limit is None:
-            limit = getattr(sys, 'tracebacklimit', None)
-            if limit is not None and limit < 0:
-                limit = 0
-        if limit is not None:
-            if limit >= 0:
-                frame_gen = itertools.islice(frame_gen, limit)
-            else:
-                frame_gen = collections.deque(frame_gen, maxlen=-limit)
+#         :param frame_gen: A generator that yields (frame, lineno) tuples to
+#             include in the stack.
+#         :param limit: None to include all frames or the number of frames to
+#             include.
+#         :param lookup_lines: If True, lookup lines for each frame immediately,
+#             otherwise lookup is deferred until the frame is rendered.
+#         :param capture_locals: If True, the local variables from each frame will
+#             be captured as object representations into the FrameSummary.
+#         """
+#         frame_gen = co_gen
+#         assert lookup_lines is False
+#         if limit is None:
+#             limit = getattr(sys, 'tracebacklimit', None)
+#             if limit is not None and limit < 0:
+#                 limit = 0
+#         if limit is not None:
+#             if limit >= 0:
+#                 frame_gen = itertools.islice(frame_gen, limit)
+#             else:
+#                 frame_gen = collections.deque(frame_gen, maxlen=-limit)
 
-        result = klass()
-        fnames = set()
-        # for f, lineno in frame_gen:
-        for co in frame_gen:
-            lineno = co.co_firstlineno
-            filename = co.co_filename
-            name = co.co_name
-            f_locals = {}
-            f_globals = {}
-            fnames.add(filename)
-            linecache.lazycache(filename, f_globals)
-            # Must defer line lookups until we have called checkcache.
-            result.append(FrameSummary(
-                filename, lineno, name, lookup_line=False, locals=f_locals))
-        for filename in fnames:
-            linecache.checkcache(filename)
-        # If immediate lookup was desired, trigger lookups now.
-        if lookup_lines:
-            for f in result:
-                f.line
-        return result
+#         result = klass()
+#         fnames = set()
+#         # for f, lineno in frame_gen:
+#         for co in frame_gen:
+#             lineno = co.co_firstlineno
+#             filename = co.co_filename
+#             name = co.co_name
+#             f_locals = {}
+#             f_globals = {}
+#             fnames.add(filename)
+#             linecache.lazycache(filename, f_globals)
+#             # Must defer line lookups until we have called checkcache.
+#             result.append(FrameSummary(
+#                 filename, lineno, name, lookup_line=False, locals=f_locals))
+#         for filename in fnames:
+#             linecache.checkcache(filename)
+#         # If immediate lookup was desired, trigger lookups now.
+#         if lookup_lines:
+#             for f in result:
+#                 f.line
+#         return result
     
-def print_tb_codes(codes,limit=None,file=None):
-    return print_list(MyStackSummary.extract_from_codes(codes,limit=limit), file=file)
+# def print_tb_codes(codes,limit=None,file=None):
+#     return print_list(MyStackSummary.extract_from_codes(codes,limit=limit), file=file)
+
+import warnings
+
 def print_tb_frames(frame_gen,limit=None,file=None):
+    warnings.warn('[print_tb_frames,StackSummary] is not safe after os.chdir')
     return print_list( StackSummary.extract(frame_gen, limit=limit), file=file)
 
 
 
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
 ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name built stack_ele')
 NotInitObject = object()
 
@@ -429,21 +429,35 @@ class PypeExecResultList(YamlModel,extra=Extra.forbid):
         assert isinstance(v, PypeExecResult)
         return self.data.append(v)
 
+StackElement = namedtuple('StackElement', 'frame filename lineno')
 import re
 from inspect import getsourcefile,linecache,getfile
-def get_frame_lineno(frame,lineno,strip=True):
+
+def print_tb_stacks(stacks:List[StackElement]):
+    for stack_ele in stacks:
+        for line in get_frame_lineno(*stack_ele):
+            eprint(line)
+
+def get_frame_lineno(frame, file=None, lineno=None,strip=True):
+    '''
+    runtime source file locating is dangerous after os.chdir
+    weird because StackSummary does not seems vulnerable
+    '''
     object = frame
-    file = getsourcefile(object)
-    if file:
-        # Invalidate cache if needed.
-        linecache.checkcache(file)
-    else:
-        file = getfile(object)
-        # Allow filenames in form of "<something>" to pass through.
-        # `doctest` monkeypatches `linecache` module to enable
-        # inspection, so let `linecache.getlines` to be called.
-        if not (file.startswith('<') and file.endswith('>')):
-            raise OSError('source code not available')
+    if file is None:
+    # if 1:
+        file = getsourcefile(object)
+        if file:
+            # Invalidate cache if needed.
+            linecache.checkcache(file)
+        else:
+            file = getfile(object)
+            # Allow filenames in form of "<something>" to pass through.
+            # `doctest` monkeypatches `linecache` module to enable
+            # inspection, so let `linecache.getlines` to be called.
+            if not (file.startswith('<') and file.endswith('>')):
+                raise OSError('source code not available')
+        # print(file,os.path.exists(file))
     lines = linecache.getlines(file)
     # if not hasattr(object, 'co_firstlineno'):
     #     raise OSError('could not find function definition')
@@ -493,14 +507,31 @@ class Controller(object):
         self.runtime = RO(self._runtime)
         self._use_pdb = 0
         self.meta = None
-        # self.runtime = (self._runtime)
-        # self._buildtime = {}
+
+        ###
+        self._target_dir = None
+        self.init_cd(None)
+
     def use_pdb(self):
         self._use_pdb = 1
     def __getitem__(self,k):
         return self.state.__getitem__(k)
-
-        #[k]
+    def init_cd(self, x):
+        '''
+        target_dir is relative to rundir
+        '''
+        if isinstance(x,str):
+            x = lambda rundir, runtime, x=x: rundir+'/'+ x
+        elif x is None:
+            x = lambda x,y:x
+        elif callable(x):
+            x
+        else:
+            raise NotImplementedError
+        self._target_dir = x
+        return x
+    @property
+    def target_dir(self):return self._target_dir
 
     def run_node_with_control(self, control, check_ctx, run, runtime=None,name = None,built=None, stack_ele=None,frame=None):
         '''
@@ -551,11 +582,12 @@ class Controller(object):
 
 
         def msg(head):
-            f,lineno = stack_ele
+            f, filename, lineno = stack_ele
             co = f.f_code
             eprint('')
             eprint(f'{head}(name={name!r}, code {co.co_name!r}, file={co.co_filename!r}, line {lineno!r})')
-            print_tb_frames([stack_ele])
+            eprint(f'  File "{filename!r}", line {lineno}, in {co.co_name})')
+            print_tb_stacks([stack_ele])
 
         msg('[BULD]')
         eprint('[CHCK]',end='')
@@ -616,7 +648,7 @@ class Controller(object):
     def runtime_setter(self):
         return self._runtime
 
-
+    
     def register_node(self, control=check_write_always,
         check_ctx=None, run=None, ctx=NotInitObject, name = None, run_now = False, built=None, frame=None):
         '''
@@ -629,7 +661,7 @@ class Controller(object):
 
         '''
         frame = DFRAME(frame)
-        stack_ele = (frame,int(frame.f_lineno))
+        stack_ele = StackElement(frame,os.path.realpath(frame.f_code.co_filename),int(frame.f_lineno))
         if ctx is NotInitObject:
             ctx = self.runtime
 
@@ -670,6 +702,15 @@ class Controller(object):
 
         if rundir is None:
             rundir = os.getcwd()
+        rundir = self.target_dir(rundir, self._runtime)
+        rundir = os.path.realpath(rundir)
+        os.makedirs(rundir) if not os.path.exists(rundir) else None
+        
+        # rundir = RuntimeObject( (rundir, self._runtime), self.target_dir).call()
+
+        ### upon running, needs to chdir to rundir
+        ### always consult self.target_dir about which
+        os.chdir(rundir)
 
         if os.path.isfile(rundir):
             meta_file = rundir
@@ -737,7 +778,7 @@ class Controller(object):
                             run_ms = dtms
                             last_run = datetime.now()
                         # print(f'[2]{run_ms}')
-                    co  = v.stack_ele[0].f_code
+                    co  = v.stack_ele.frame.f_code
                     ret = PypeExecResult(
                         name   = v.name,
                         suc    = suc,
@@ -752,7 +793,7 @@ class Controller(object):
                         stdout = out.read().splitlines(), 
                         stderr = err.read().splitlines(),
                         file   = os.path.realpath(co.co_filename),
-                        lineno = v.stack_ele[1],
+                        lineno = v.stack_ele.lineno,
                         source = (get_frame_lineno(*v.stack_ele)),
                     )
                     push(ret)
