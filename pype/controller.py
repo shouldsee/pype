@@ -391,23 +391,31 @@ class StdoutDup(PipeDupPrototype):
     real = sys.stdout
     key = 'stdout'
 
-from pydantic import BaseModel,Extra
-from typing import Dict,List
+from pydantic import BaseModel,Extra,Field
+from typing import Dict,List,Optional
 from pydantic_yaml import YamlModelMixin
-# from pydantic_yaml import ?YamlModel,YamlModelMixin
 import yaml
+from datetime import datetime
 class YamlModel(YamlModelMixin, BaseModel):
     pass
 class PypeExecResult(YamlModel,extra=Extra.forbid):
     name: str
-    co_name: str
-    skipped: int
-    run_ms: int
-    file: str
-    lineno: int
-    source: List[str]
-    stdout: List[str]
-    stderr: List[str]
+    co_name: Optional[str ]
+    suc: int = 1
+    skipped: int = -1
+
+    last_run: datetime  = Field(default_factory=datetime.now)
+    run_ms: int=-1
+
+    last_check: datetime = Field(default_factory=datetime.now)
+    cur_ms: int=-1
+
+    file: Optional[str]
+    lineno: Optional[int]
+    # source: Optional[List[str]]
+    source: List[str]=[]
+    stdout: Optional[List[str]]
+    stderr: Optional[List[str]]
 
 class PypeExecResultList(YamlModel,extra=Extra.forbid):
     data: List[PypeExecResult]
@@ -417,6 +425,9 @@ class PypeExecResultList(YamlModel,extra=Extra.forbid):
     def datadict(self):
         v = {v.name: v for v in self.data}
         return v
+    def append(self,v ):
+        assert isinstance(v, PypeExecResult)
+        return self.data.append(v)
 
 import re
 from inspect import getsourcefile,linecache,getfile
@@ -451,6 +462,28 @@ def get_frame_lineno(frame,lineno,strip=True):
     return ret
     # return lines, lnum
 
+from prettytable import PrettyTable
+from json import JSONDecoder, JSONDecodeError
+import re
+NOT_WHITESPACE = re.compile(r'[^\s]')
+def json_decode_stacked(document, pos=0, decoder=JSONDecoder()):
+    '''
+    Source: https://stackoverflow.com/a/50384432/8083313
+    '''
+    while True:
+        match = NOT_WHITESPACE.search(document, pos)        
+        if not match:
+            return
+        pos = match.start()
+        
+        try:
+            obj, pos = decoder.raw_decode(document, pos)
+        except JSONDecodeError:
+            # do something sensible if there's some error
+            raise
+        yield obj
+
+
 NULL = object()
 class Controller(object):
     def __init__(self):
@@ -459,6 +492,7 @@ class Controller(object):
         self._runtime = {}
         self.runtime = RO(self._runtime)
         self._use_pdb = 0
+        self.meta = None
         # self.runtime = (self._runtime)
         # self._buildtime = {}
     def use_pdb(self):
@@ -484,7 +518,6 @@ class Controller(object):
         built:
           meta information once built
         '''
-        t0 = time.time()
 
         frame=DFRAME(frame)
         check, write = control
@@ -550,10 +583,6 @@ class Controller(object):
             tocall.call()
             write(check_ctx, )
 
-        t1 = time.time()
-        k = repr(run)[:30]
-        dt = t1-t0
-        self.stats[k] = (k, int(dt*10**3), int(dt *10**6) % 1000)
         return checked
 
         '''
@@ -561,7 +590,23 @@ class Controller(object):
         is affected by check()
         '''
     def pprint_stats(self):
-        pprint(self.stats)
+        x = PrettyTable()
+        x.field_names = ["name", 
+            "co_name", 
+            # "source",
+            "lineno", "skipped","cur_ms", "run_ms","file"]        
+        for v in self.meta.data:
+            # xx = []
+            # for xn in x.field_names:
+            #     vv = getattr(v,xn)
+            #     # if xn =='source':
+            #     #     vv = '\n'.join(vv)
+            #     xx.append(vv)                
+            # x.add_row(xx)
+            x.add_row([getattr(v,xn) for xn in x.field_names])        
+        x.align='l'
+        eprint(x.get_string())
+        # pprint(self.meta)
 
     @property
     def nodes(self):
@@ -586,22 +631,19 @@ class Controller(object):
         frame = DFRAME(frame)
         stack_ele = (frame,int(frame.f_lineno))
         if ctx is NotInitObject:
-
-            #### this does not work yet
-            #### the getted value is returned directly
-            #### the caller
-            #### the callee is evaluated before apply to caller
-
-            # ctx = RO(self.__dict__)['runtime']
-            # ctx = RO(self._runtime)
             ctx = self.runtime
-            # ctx = self.runtime
-            # ctx = RO(self.__dict__, lambda x:x['runtime'])
-            # ['runtime']
+
+        if name is None:
+            name = lambda x:'_defaul_key_{x}'
+
+        _name = (self.state.__len__())
+        if not isinstance(name,str):
+            name = name(_name)
 
         assert run is not None, 'Must specify "run"'
-        if name is None:
-            name = '_defaul_key_%d'%(self.state.__len__())
+        assert isinstance(name,str),name
+
+
         self.state[name]= node = ControllerNode(control, check_ctx, run, ctx, name, built, stack_ele)
         if run_now:
             '''
@@ -611,7 +653,7 @@ class Controller(object):
         return node
     # RWC = run_node_with_control
     RWC = register_node
-    def run(self, runtime= None,rundir=None, metabase=None):
+    def run(self, rundir=None, metabase=None, runtime= None,):
         '''
         return: a list indicates whether each step is skipped or executed
 
@@ -633,58 +675,100 @@ class Controller(object):
             meta_file = rundir
         else: 
             if metabase is None:
-                metabase = 'PYPE.yaml'
+                metabase = 'PYPE.json'
             meta_file = rundir +'/' +metabase
-            
-        meta = PypeExecResultList(data=[])
+
+        self.meta = meta = PypeExecResultList(data=[])
+        diskmeta = PypeExecResultList(data=[])
         try:            
-            buf = ''
             with open(meta_file,'r') as f:
-                buf = f.read()
-            meta = PypeExecResultList.parse_raw(buf)            
+                it = json_decode_stacked(f.read())
+                [diskmeta.append(PypeExecResult(**x)) 
+                    for x in it]
+            shutil.move( meta_file, meta_file+'.last') 
+            if not len(diskmeta.data):
+                raise ValueError('Empty Json') 
         except Exception as e:
             eprint(f'[Controller.run] Unable to load metafile:{meta_file} {e}')
+            # raise e
 
-        for k,v in self.state.items():
-            out = StdoutDup(io.StringIO())
-            err = StderrDup(io.StringIO())
-            v
-            t0 = time.time()
-            checked = self.run_node_with_control(*v)
-            dt = time.time()-t0
-            dtms = int(dt*1000)
-            out.seek(0)
-            err.seek(0)
-            disknode = meta.datadict.get(k,None)
-            run_ms = None
-            if disknode is not None:
-                run_ms = disknode.run_ms
-            else:
-                run_ms = dtms
-            co  = v.stack_ele[0].f_code
+        with open(meta_file,'w',1) as f:
+            def push(ret):
+                self.meta.append(ret)
+                f.write(ret.json(indent=2)+'\n')
+                return 
+
             ret = PypeExecResult(
-                 name   = v.name,
-                 co_name= co.co_name,
-                 skipped= 1 - int(checked),
-                 run_ms = run_ms,
-                 stdout = out.read().splitlines(), 
-                 stderr = err.read().splitlines(),
-                 file   = os.path.realpath(co.co_filename),
-                 lineno = v.stack_ele[1],
-                 source = (get_frame_lineno(*v.stack_ele)),
+                name='_PYPE_START',
+                suc=1,                    
             )
-            rets.append(ret)
+            push(ret)
 
-        rets = PypeExecResultList(data=rets)
-        with open(meta_file, 'w') as f:
-            f.write(rets.yaml())
-            # (rets.dict()))
-        return rets
+
+            for k,v in self.state.items():
+                out = StdoutDup(io.StringIO())
+                err = StderrDup(io.StringIO())
+                v
+                t0 = time.time()
+                suc = 1
+                skipped = 1
+                try:
+                    checked = self.run_node_with_control(*v)
+                except Exception as e:
+                    suc = 0
+                    raise e
+                finally:
+                    skipped = int(checked)
+                    dt = time.time()-t0
+                    cur_ms = dtms = int(dt*1000)
+                    out.seek(0)
+                    err.seek(0)
+                    disknode = diskmeta.datadict.get(k,None)
+                    run_ms = None
+                    if (disknode is not None) and skipped:
+                        run_ms = disknode.run_ms
+                        last_run = disknode.last_run
+                        # print(f'[1]{run_ms}')
+                    else:
+                        if skipped:
+                            run_ms = -1
+                            last_run = datetime.fromtimestamp(0)
+                        else:
+                            run_ms = dtms
+                            last_run = datetime.now()
+                        # print(f'[2]{run_ms}')
+                    co  = v.stack_ele[0].f_code
+                    ret = PypeExecResult(
+                        name   = v.name,
+                        suc    = suc,
+                        co_name= co.co_name,
+                        # co_name=repr(v.run)[:30],
+                        # co_name= v.run.__code__.co_name,
+                        skipped= skipped,
+                        last_run=last_run,
+                        # end_time = datetime.datetime.now(),
+                        run_ms = run_ms,
+                        cur_ms = cur_ms,
+                        stdout = out.read().splitlines(), 
+                        stderr = err.read().splitlines(),
+                        file   = os.path.realpath(co.co_filename),
+                        lineno = v.stack_ele[1],
+                        source = (get_frame_lineno(*v.stack_ele)),
+                    )
+                    push(ret)
+
+            ret = PypeExecResult(
+                name='_PYPE_END',
+                suc=1,                    
+            )
+            push(ret)
+            
+        return self.meta
 
     def build(self,*a,**kw):
         return self.run(*a,**kw)
 
-    def lazy_wget(self, url,):
+    def lazy_wget(self, url, name=lambda x:f'lazy_wget/{x}'):
         '''
         fix cwd at runtime
         '''
@@ -699,9 +783,13 @@ class Controller(object):
             shutil.move(target+'.temp',target)
 
         return self.register_node(
-            check_write_2, check_ctx=target, run=_lazy_wget, built=target)
+            check_write_2, check_ctx=target, run=_lazy_wget,
+            name=name,
+             built=target)
 
-    def lazy_apt_install(self, PACK):
+    def lazy_apt_install(self, PACK,name=None):
+        if name is None:
+            name = lambda x:f'lazy_apt_install/{x}'
         if not isinstance(PACK,(list,tuple)):
             PACK = PACK.split()
         def checker(x,PACK=PACK):
@@ -712,20 +800,25 @@ class Controller(object):
         return self.RWC([checker,None],
             run= f'''{"sudo" if not is_root() else ''} apt install -y {sjoin(PACK)}''',
             frame=FRAME(1),
+            name=name,
             )
 
-    def lazy_pip_install(self, TARGET_LIST,pre_cmd=''):
+    def lazy_pip_install(self, TARGET_LIST,pre_cmd='',
+    name=lambda x:f'lazy_wget/{x}'):
         TARGETS = sjoin(TARGET_LIST)
         return self.RWC([is_pypack_installed, None], TARGET_LIST, f'''
         {pre_cmd}
         {SEXE} -m pip install --upgrade {TARGETS}
         ''',built=TARGET_LIST,
+        name=name,
         frame=FRAME(1),)
 
         # frame=FRAME(1))
 
 
-    def lazy_git_url_commit(self, url, commit, target_dir=None,name=None):
+    def lazy_git_url_commit(self, url, commit, target_dir=None,
+    name=lambda x:f'lazy_git/{x}',
+    ):
         '''
         fix cwd at runtime
         '''

@@ -1,0 +1,100 @@
+{
+  "name": "_PYPE_START",
+  "co_name": null,
+  "suc": 1,
+  "skipped": -1,
+  "last_run": "2022-10-25T21:12:03.236173",
+  "run_ms": -1,
+  "last_check": "2022-10-25T21:12:03.236182",
+  "cur_ms": -1,
+  "file": null,
+  "lineno": null,
+  "source": [],
+  "stdout": null,
+  "stderr": null
+}
+{
+  "name": "lazy_apt_install/0",
+  "co_name": "know_my_cli",
+  "suc": 1,
+  "skipped": 0,
+  "last_run": "2022-10-25T21:12:07.757242",
+  "run_ms": 4520,
+  "last_check": "2022-10-25T21:12:07.758081",
+  "cur_ms": 4520,
+  "file": "/repos/shared/repos/pype/examples/know_my_cli.py",
+  "lineno": 4,
+  "source": [
+    "    ctl.lazy_apt_install('nano git proxychains4'.split())"
+  ],
+  "stdout": [],
+  "stderr": [
+    "",
+    "[BULD](name='lazy_apt_install/0', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 4)",
+    "  File \"/repos/shared/repos/pype/examples/know_my_cli.py\", line 4, in know_my_cli",
+    "    ctl.lazy_apt_install('nano git proxychains4'.split())",
+    "[CHCK][RUNN]"
+  ]
+}
+{
+  "name": "lazy_wget/1",
+  "co_name": "know_my_cli",
+  "suc": 1,
+  "skipped": 0,
+  "last_run": "2022-10-25T21:12:14.145707",
+  "run_ms": 6387,
+  "last_check": "2022-10-25T21:12:14.146176",
+  "cur_ms": 6387,
+  "file": "/repos/shared/repos/pype/examples/know_my_cli.py",
+  "lineno": 6,
+  "source": [
+    "    ctl.lazy_pip_install(",
+    "        'toml pyyaml'.split())"
+  ],
+  "stdout": [],
+  "stderr": [
+    "",
+    "[BULD](name='lazy_wget/1', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 6)",
+    "  File \"/repos/shared/repos/pype/examples/know_my_cli.py\", line 6, in know_my_cli",
+    "    'toml pyyaml'.split())",
+    "[CHCK][RUNN]"
+  ]
+}
+{
+  "name": "lazy_git/2",
+  "co_name": "know_my_cli",
+  "suc": 1,
+  "skipped": 1,
+  "last_run": "1970-01-01T08:00:00",
+  "run_ms": -1,
+  "last_check": "2022-10-25T21:12:14.155676",
+  "cur_ms": 8,
+  "file": "/repos/shared/repos/pype/examples/know_my_cli.py",
+  "lineno": 7,
+  "source": [
+    "    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype','598b7a2b1201d138260c22119afd7b4d5449fe97')"
+  ],
+  "stdout": [],
+  "stderr": [
+    "",
+    "[BULD](name='lazy_git/2', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 7)",
+    "  File \"/repos/shared/repos/pype/examples/know_my_cli.py\", line 7, in know_my_cli",
+    "    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype','598b7a2b1201d138260c22119afd7b4d5449fe97')",
+    "[CHCK][SKIP]"
+  ]
+}
+{
+  "name": "_PYPE_END",
+  "co_name": null,
+  "suc": 1,
+  "skipped": -1,
+  "last_run": "2022-10-25T21:12:14.156065",
+  "run_ms": -1,
+  "last_check": "2022-10-25T21:12:14.156069",
+  "cur_ms": -1,
+  "file": null,
+  "lineno": null,
+  "source": [],
+  "stdout": null,
+  "stderr": null
+}

@@ -47,11 +47,12 @@ of argument-less callables.
    - runtime functions with runtime inputs. reused when calling on a new argument.
    - allowing runtime functions to check buildtime deps when initing.
 - portable `know` functions that can be imported to compose larger systems. 
+- [TBC] adding bash wrapper to interact with stdin? clear or append to meta file?
 - [TBC,important] 
   - `Pype` can be linear chained, or parallel chained, to create larger Pypes.
-  - Each `Pype` knows where it is defined.
-  - Each `Pype` manages its own time-cache.
-  - usually each Pype would bind to a directory, with some runtime variable.
+  - [DONE] Each `Pype` knows where it is defined.
+  - [DONE] Each `Pype` manages its own meta file
+  - [DONE] usually each Pype would bind to a directory, with some runtime variable.
     - `-C` to change directory before execution
     - `--meta-file` to specify meta file other than `PYPE.toml`
     - consider warnings if multiple Pype / multiple runtimes executed against the same meta file.
@@ -61,8 +62,8 @@ of argument-less callables.
       - option_3: allow overwrite if Pype name matches,ignore runtime stream.
       - option 4: allow overwrite what-so-ever
     - use a constructor to delay the specification of directory until runtime.
-  - also allows binds to a single file.
-  - when Pype is executed, the bound meta file gets updated.
+  - [needtest] also allows binds to a single file.
+  - [DONE] when Pype is executed, the bound meta file gets updated.
     - possible back-injection by file-watching?
   - when creating new directories, consider new Pypes.
   - contextManager to construct `Pype`. 
@@ -140,14 +141,35 @@ Evaltime traceback:
 
 ```
 
-### example log:
+### example stderr log:
 
 ```
-[SKIP](name='_defaul_key_0', code 'know_my_cli', file='/repos/shared/repos/pype/tests/test_base.py', line 8)
-File "/repos/shared/repos/pype/tests/test_base.py", line 8, in know_my_cli
+[BULD](name='lazy_apt_install/0', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 4)
+  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 4, in know_my_cli
     ctl.lazy_apt_install('nano git proxychains4'.split())
+[CHCK][SKIP]
 
-[SKIP](name='_defaul_key_1', code 'know_my_cli', file='/repos/shared/repos/pype/tests/test_base.py', line 11)
-File "/repos/shared/repos/pype/tests/test_base.py", line 11, in know_my_cli
-    target_dir='temp_pype')
+[BULD](name='lazy_wget/1', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 6)
+  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 6, in know_my_cli
+    'toml pyyaml'.split())
+[CHCK][RUNN]
+
+[BULD](name='lazy_git/2', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 7)
+  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 7, in know_my_cli
+    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype','598b7a2b1201d138260c22119afd7b4d5449fe97')
+[CHCK][SKIP]
+```
+
+### example summary log `Controller.pprint_stats`:
+
+```
++--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
+| name               | co_name     | lineno | skipped | cur_ms | run_ms | file                                             |
++--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
+| _PYPE_START        | None        | None   | -1      | -1     | -1     | None                                             |
+| lazy_apt_install/0 | know_my_cli | 4      | 1       | 35     | 4520   | /repos/shared/repos/pype/examples/know_my_cli.py |
+| lazy_wget/1        | know_my_cli | 6      | 0       | 6141   | 6141   | /repos/shared/repos/pype/examples/know_my_cli.py |
+| lazy_git/2         | know_my_cli | 7      | 1       | 8      | -1     | /repos/shared/repos/pype/examples/know_my_cli.py |
+| _PYPE_END          | None        | None   | -1      | -1     | -1     | None                                             |
++--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
 ```
