@@ -26,7 +26,7 @@ config = dict(
 	],
     extras_require = {
         'testing':  ['pytest',]
-    }	
+    },
     entry_points={
         "console_scripts": [
             # "pyluck=luck.cli:luck_main",
