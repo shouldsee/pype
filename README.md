@@ -1,6 +1,5 @@
 # pype: A PYthon PlannEr
 
-
 ## Installation:
 
 As a python package

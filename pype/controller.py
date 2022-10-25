@@ -11,6 +11,7 @@ import time
 import io
 SEXE = sys.executable
 from collections import OrderedDict,namedtuple
+from .filelock import FileLock
 def s(cmd,shell=True,raw=False):
     if 'set -e' not in cmd:
         cmd = 'set -e; ' + cmd
@@ -344,9 +345,11 @@ from traceback import print_list,linecache,FrameSummary
 #     return print_list(MyStackSummary.extract_from_codes(codes,limit=limit), file=file)
 
 import warnings
-
 def print_tb_frames(frame_gen,limit=None,file=None):
-    warnings.warn('[print_tb_frames,StackSummary] is not safe after os.chdir')
+    '''
+    [DANGEROUS]
+    '''
+    warnings.warn('[print_tb_frames,StackSummary] is not safe after os.chdir. StackSummary only shows relative path')
     return print_list( StackSummary.extract(frame_gen, limit=limit), file=file)
 
 
@@ -519,8 +522,10 @@ class Controller(object):
     def init_cd(self, x):
         '''
         target_dir is relative to rundir
+        Because Pype are considered sub-components before built
         '''
         if isinstance(x,str):
+            assert not os.path.isabs(x),x
             x = lambda rundir, runtime, x=x: rundir+'/'+ x
         elif x is None:
             x = lambda x,y:x
@@ -666,7 +671,7 @@ class Controller(object):
             ctx = self.runtime
 
         if name is None:
-            name = lambda x:'_defaul_key_{x}'
+            name = lambda x:f'_defaul_key_{x}'
 
         _name = (self.state.__len__())
         if not isinstance(name,str):
@@ -719,92 +724,93 @@ class Controller(object):
                 metabase = 'PYPE.json'
             meta_file = rundir +'/' +metabase
 
-        self.meta = meta = PypeExecResultList(data=[])
-        diskmeta = PypeExecResultList(data=[])
-        try:            
-            with open(meta_file,'r') as f:
-                it = json_decode_stacked(f.read())
-                [diskmeta.append(PypeExecResult(**x)) 
-                    for x in it]
-            shutil.move( meta_file, meta_file+'.last') 
-            if not len(diskmeta.data):
-                raise ValueError('Empty Json') 
-        except Exception as e:
-            eprint(f'[Controller.run] Unable to load metafile:{meta_file} {e}')
-            # raise e
+        with FileLock(meta_file):
+            self.meta = meta = PypeExecResultList(data=[])
+            diskmeta = PypeExecResultList(data=[])
+            try:
+                with open(meta_file,'r') as f:
+                    it = json_decode_stacked(f.read())
+                    [diskmeta.append(PypeExecResult(**x)) 
+                        for x in it]
+                shutil.move( meta_file, meta_file+'.last') 
+                if not len(diskmeta.data):
+                    raise ValueError('Empty Json') 
+            except Exception as e:
+                eprint(f'[Controller.run] Unable to load metafile:{meta_file} {e}')
+                # raise e
 
-        with open(meta_file,'w',1) as f:
-            def push(ret):
-                self.meta.append(ret)
-                f.write(ret.json(indent=2)+'\n')
-                return 
+            with open(meta_file,'w',1) as f:
+                def push(ret):
+                    self.meta.append(ret)
+                    f.write(ret.json(indent=2)+'\n')
+                    return 
 
-            ret = PypeExecResult(
-                name='_PYPE_START',
-                suc=1,                    
-            )
-            push(ret)
+                ret = PypeExecResult(
+                    name='_PYPE_START',
+                    suc=1,                    
+                )
+                push(ret)
 
 
-            for k,v in self.state.items():
-                out = StdoutDup(io.StringIO())
-                err = StderrDup(io.StringIO())
-                v
-                t0 = time.time()
-                suc = 1
-                skipped = 1
-                try:
-                    checked = self.run_node_with_control(*v)
-                except Exception as e:
-                    suc = 0
-                    raise e
-                finally:
-                    skipped = int(checked)
-                    dt = time.time()-t0
-                    cur_ms = dtms = int(dt*1000)
-                    out.seek(0)
-                    err.seek(0)
-                    disknode = diskmeta.datadict.get(k,None)
-                    run_ms = None
-                    if (disknode is not None) and skipped:
-                        run_ms = disknode.run_ms
-                        last_run = disknode.last_run
-                        # print(f'[1]{run_ms}')
-                    else:
-                        if skipped:
-                            run_ms = -1
-                            last_run = datetime.fromtimestamp(0)
+                for k,v in self.state.items():
+                    out = StdoutDup(io.StringIO())
+                    err = StderrDup(io.StringIO())
+                    v
+                    t0 = time.time()
+                    suc = 1
+                    skipped = 1
+                    try:
+                        checked = self.run_node_with_control(*v)
+                    except Exception as e:
+                        suc = 0
+                        raise e
+                    finally:
+                        skipped = int(checked)
+                        dt = time.time()-t0
+                        cur_ms = dtms = int(dt*1000)
+                        out.seek(0)
+                        err.seek(0)
+                        disknode = diskmeta.datadict.get(k,None)
+                        run_ms = None
+                        if (disknode is not None) and skipped:
+                            run_ms = disknode.run_ms
+                            last_run = disknode.last_run
+                            # print(f'[1]{run_ms}')
                         else:
-                            run_ms = dtms
-                            last_run = datetime.now()
-                        # print(f'[2]{run_ms}')
-                    co  = v.stack_ele.frame.f_code
-                    ret = PypeExecResult(
-                        name   = v.name,
-                        suc    = suc,
-                        co_name= co.co_name,
-                        # co_name=repr(v.run)[:30],
-                        # co_name= v.run.__code__.co_name,
-                        skipped= skipped,
-                        last_run=last_run,
-                        # end_time = datetime.datetime.now(),
-                        run_ms = run_ms,
-                        cur_ms = cur_ms,
-                        stdout = out.read().splitlines(), 
-                        stderr = err.read().splitlines(),
-                        file   = os.path.realpath(co.co_filename),
-                        lineno = v.stack_ele.lineno,
-                        source = (get_frame_lineno(*v.stack_ele)),
-                    )
-                    push(ret)
+                            if skipped:
+                                run_ms = -1
+                                last_run = datetime.fromtimestamp(0)
+                            else:
+                                run_ms = dtms
+                                last_run = datetime.now()
+                            # print(f'[2]{run_ms}')
+                        co  = v.stack_ele.frame.f_code
+                        ret = PypeExecResult(
+                            name   = v.name,
+                            suc    = suc,
+                            co_name= co.co_name,
+                            # co_name=repr(v.run)[:30],
+                            # co_name= v.run.__code__.co_name,
+                            skipped= skipped,
+                            last_run=last_run,
+                            # end_time = datetime.datetime.now(),
+                            run_ms = run_ms,
+                            cur_ms = cur_ms,
+                            stdout = out.read().splitlines(), 
+                            stderr = err.read().splitlines(),
+                            file   = os.path.realpath(co.co_filename),
+                            lineno = v.stack_ele.lineno,
+                            source = (get_frame_lineno(*v.stack_ele)),
+                        )
+                        push(ret)
 
-            ret = PypeExecResult(
-                name='_PYPE_END',
-                suc=1,                    
-            )
-            push(ret)
+                ret = PypeExecResult(
+                    name='_PYPE_END',
+                    suc=1,                    
+                )
+                push(ret)
             
-        return self.meta
+            return self.meta
 
     def build(self,*a,**kw):
         return self.run(*a,**kw)
