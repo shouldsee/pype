@@ -353,6 +353,105 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name built stack_ele')
 NotInitObject = object()
+
+
+
+class PipeDupPrototype(object):    
+    def __init__(self, file):
+        self.file = file 
+        # print(sys, self.key, self)
+        setattr(sys, self.key, self)
+
+    def reset(self):
+        setattr(sys, self.key, self.real)
+        self.file.close()
+
+    def write(self, message):
+        self.real.write(message)
+        self.file.write(message)  
+
+    def flush(self,):
+        self.real.flush()
+        self.file.flush()
+
+    def __enter__(self):
+        return self
+    def __exit__(self, type, value, traceback):
+        self.reset()
+    def read(self,*args):
+        return self.file.read(*args)
+    def seek(self,*args):
+        return self.file.seek(*args)
+
+class StderrDup(PipeDupPrototype):
+    real = sys.stderr
+    key = 'stderr'
+
+class StdoutDup(PipeDupPrototype):
+    real = sys.stdout
+    key = 'stdout'
+
+from pydantic import BaseModel,Extra
+from typing import Dict,List
+from pydantic_yaml import YamlModelMixin
+# from pydantic_yaml import ?YamlModel,YamlModelMixin
+import yaml
+class YamlModel(YamlModelMixin, BaseModel):
+    pass
+class PypeExecResult(YamlModel,extra=Extra.forbid):
+    name: str
+    co_name: str
+    skipped: int
+    run_ms: int
+    file: str
+    lineno: int
+    source: List[str]
+    stdout: List[str]
+    stderr: List[str]
+
+class PypeExecResultList(YamlModel,extra=Extra.forbid):
+    data: List[PypeExecResult]
+    # def __getitem__(self,key)
+    # def get(self,key,default=)
+    @property
+    def datadict(self):
+        v = {v.name: v for v in self.data}
+        return v
+
+import re
+from inspect import getsourcefile,linecache,getfile
+def get_frame_lineno(frame,lineno,strip=True):
+    object = frame
+    file = getsourcefile(object)
+    if file:
+        # Invalidate cache if needed.
+        linecache.checkcache(file)
+    else:
+        file = getfile(object)
+        # Allow filenames in form of "<something>" to pass through.
+        # `doctest` monkeypatches `linecache` module to enable
+        # inspection, so let `linecache.getlines` to be called.
+        if not (file.startswith('<') and file.endswith('>')):
+            raise OSError('source code not available')
+    lines = linecache.getlines(file)
+    # if not hasattr(object, 'co_firstlineno'):
+    #     raise OSError('could not find function definition')
+    # lnum = object.co_firstlineno - 1
+    lnum = lineno - 1
+    # pat = re.compile(r'^(\s*def\s)|(\s*async\s+def\s)|(.*(?<!\w)lambda(:|\s))|^(\s*@)')
+    pat = re.compile(r'^(.*ctl\..*\()|^(.*RWC\()')
+    lnum0 = lnum
+    while lnum > 0:
+        # print(repr(lines[lnum]))
+        if pat.match(lines[lnum]): break
+        lnum = lnum - 1
+    ret = lines[lnum:lnum0+1]
+    if strip:
+        ret = [x.rstrip() for x in ret]
+    return ret
+    # return lines, lnum
+
+NULL = object()
 class Controller(object):
     def __init__(self):
         self.state = OrderedDict()
@@ -386,10 +485,8 @@ class Controller(object):
           meta information once built
         '''
         t0 = time.time()
-        # try:
+
         frame=DFRAME(frame)
-        # frame = FRAME(0)
-        # self.state[]
         check, write = control
         if check is None:
             check = DefaultChecker
@@ -419,8 +516,17 @@ class Controller(object):
         if self._use_pdb:
             import pdb;pdb.set_trace()
 
-        check = RuntimeObject(check).call()
 
+        def msg(head):
+            f,lineno = stack_ele
+            co = f.f_code
+            eprint('')
+            eprint(f'{head}(name={name!r}, code {co.co_name!r}, file={co.co_filename!r}, line {lineno!r})')
+            print_tb_frames([stack_ele])
+
+        msg('[BULD]')
+        eprint('[CHCK]',end='')
+        check = RuntimeObject(check).call()
         '''
         Dangerous and needs a way to chain to the left?
         '''
@@ -430,21 +536,15 @@ class Controller(object):
             checked = check
         ## int is much safer than bool
         checked = int(checked)
-
-        def msg(head):
-            f,lineno = stack_ele
-            co = f.f_code
-            eprint('')
-            eprint(f'{head}(name={name!r}, code {co.co_name!r}, file={co.co_filename!r}, line {lineno!r})')
-            print_tb_frames([stack_ele])
-
         if checked==1:
             
             # print(f'[SKIP]({name},{co.co_name},)')
             # print(f'[SKIP]({name},{stack_ele})')
-            msg('[SKIP]')
+            # msg('[SKIP]')
+            eprint('[SKIP]')
         else:
-            msg('[RUNN]')
+            eprint('[RUNN]')
+            # msg('[RUNN]')
             # print(f'[RUNN]({name},{stack_ele})')
             # run(runtime)
             tocall.call()
@@ -511,17 +611,74 @@ class Controller(object):
         return node
     # RWC = run_node_with_control
     RWC = register_node
-    def run(self, runtime= None):
+    def run(self, runtime= None,rundir=None, metabase=None):
         '''
         return: a list indicates whether each step is skipped or executed
+
+        stdout redirecting?
+
+
         '''
         if runtime is None:
             runtime = {}
         self._runtime.update(runtime)
         rets = []
+
+
+
+        if rundir is None:
+            rundir = os.getcwd()
+
+        if os.path.isfile(rundir):
+            meta_file = rundir
+        else: 
+            if metabase is None:
+                metabase = 'PYPE.yaml'
+            meta_file = rundir +'/' +metabase
+            
+        meta = PypeExecResultList(data=[])
+        try:            
+            buf = ''
+            with open(meta_file,'r') as f:
+                buf = f.read()
+            meta = PypeExecResultList.parse_raw(buf)            
+        except Exception as e:
+            eprint(f'[Controller.run] Unable to load metafile:{meta_file} {e}')
+
         for k,v in self.state.items():
-            ret = self.run_node_with_control(*v)
-            rets.append((k,ret))
+            out = StdoutDup(io.StringIO())
+            err = StderrDup(io.StringIO())
+            v
+            t0 = time.time()
+            checked = self.run_node_with_control(*v)
+            dt = time.time()-t0
+            dtms = int(dt*1000)
+            out.seek(0)
+            err.seek(0)
+            disknode = meta.datadict.get(k,None)
+            run_ms = None
+            if disknode is not None:
+                run_ms = disknode.run_ms
+            else:
+                run_ms = dtms
+            co  = v.stack_ele[0].f_code
+            ret = PypeExecResult(
+                 name   = v.name,
+                 co_name= co.co_name,
+                 skipped= 1 - int(checked),
+                 run_ms = run_ms,
+                 stdout = out.read().splitlines(), 
+                 stderr = err.read().splitlines(),
+                 file   = os.path.realpath(co.co_filename),
+                 lineno = v.stack_ele[1],
+                 source = (get_frame_lineno(*v.stack_ele)),
+            )
+            rets.append(ret)
+
+        rets = PypeExecResultList(data=rets)
+        with open(meta_file, 'w') as f:
+            f.write(rets.yaml())
+            # (rets.dict()))
         return rets
 
     def build(self,*a,**kw):
@@ -541,7 +698,8 @@ class Controller(object):
             ret = urllib.request.urlretrieve(url, target+'.temp',)
             shutil.move(target+'.temp',target)
 
-        return self.register_node(check_write_2, check_ctx=target, run=_lazy_wget, built=target)
+        return self.register_node(
+            check_write_2, check_ctx=target, run=_lazy_wget, built=target)
 
     def lazy_apt_install(self, PACK):
         if not isinstance(PACK,(list,tuple)):

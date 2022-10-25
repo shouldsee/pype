@@ -20,7 +20,7 @@ config = dict(
 	'Programming Language :: Python :: 3.7',
 	],
 	install_requires=[
-	'toml','pytest',
+	'toml','pytest','pyyaml','pydantic-yaml'
 		# x.strip() for x in open("requirements.txt","r")
         # 	if x.strip() and not x.strip().startswith("#")
 	],
