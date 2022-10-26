@@ -6,7 +6,20 @@ As a python package
 
 `python3 -m pip install https://github.com/shouldsee/pype/tarball/master`
 
-## quick example: `python3 examples/know_my_cli.py`
+## Design Principles
+
+- Readbility: Focus on transformation by chaining functions 
+(aka. Functional Programming)
+ via `RuntimeObject(callee,caller)`
+- Compositionality: Easy specification of objects with connectable endpoints, 
+via core functions:
+    - `Controller.built`,`PlaceHolder.built`:deferred reference, 
+    - `Controller.export(k,v,t)`: exported to be available via `.built`
+    - `Controller.runtime_init(k,v,t)`: variable loading to fire callables against.
+- Debuggability: via tracebacks, logged stdout/stderr, and type checkers
+- Integrable: All of and more than python packages.
+
+### quick example: `python3 examples/know_my_cli.py`
 
 ```python
 from pype import Controller
@@ -30,7 +43,7 @@ if __name__=='__main__':
     print('[DONE]',ctl.built['done_ts'].call())
 ```
 
-## example with variables: `python3 examples/know_my_cli_adv.py`
+### example with variables: `python3 examples/know_my_cli_adv.py`
 
 With more features demonstrated
 
@@ -124,21 +137,89 @@ drwxr-xr-x 6 root root  165 10月 27 02:41 temp_pype
     '''
 ```
 
+### Example: debuggability: evaltime traceback for RuntimeObject
 
 
-## Design Principles:
+This pytest function shows what's expected when an error-raising function
+is composed into the chain. on `x.call()`, the lambda funcs got executed
+and a traceback outlines the call chain that leads to the error.
 
-- Readbility: Focus on transformation by chaining functions 
-(aka. Functional Programming)
- via `RuntimeObject(callee,caller)`
-- Compositionality: Easy specification of objects with connectable endpoints, 
-via core functions:
-    - `Controller.built`,`PlaceHolder.built`:deferred reference, 
-    - `Controller.export(k,v,t)`: exported to be available via `.built`
-    - `Controller.runtime_init(k,v,t)`: variable loading to fire callables against.
-- Debuggability: via tracebacks, logged stdout/stderr, and type checkers
+[TBC] adds optional echo stream to trace the whole RuntimeObject chain
+to the start of chain.
 
-## features
+```python
+import pytest
+from pype import RuntimeObject as RO
+def test_error(capfd):
+    myexe = Exception('foobar')
+    with pytest.raises(Exception) as einfo:
+        x = RO(None)
+        x = x.chain_with(lambda x:x)
+        x = x.chain_with(lambda x: (_ for _ in ()).throw(myexe))
+        x = x.chain_with(lambda x:[][1])
+        x = x.chain_with(lambda x:[x])
+        x.call()
+
+        '''
+        The above is equivalent to 
+        x = RO(None)
+        x = RO(x,lambda x: (_ for _ in ()).throw(myexe))
+        x = RO(x,lambda x:[][1])
+        x = RO(x,lambda x:[x])
+        x.call()
+        '''
+
+    assert einfo.value is myexe
+    expected = '''
+------------------------------
+Evaltime traceback:
+  File "/repos/shared/repos/pype/tests/test_base.py", line 14, in test_error
+    x = x.chain_with(lambda x: (_ for _ in ()).throw(myexe))
+  File "/repos/shared/repos/pype/tests/test_base.py", line 15, in test_error
+    x = x.chain_with(lambda x:[][1])
+  File "/repos/shared/repos/pype/tests/test_base.py", line 16, in test_error
+    x = x.chain_with(lambda x:[x])
+------------------------------
+'''
+    out, err = capfd.readouterr()
+    assert_similar_tb(expected, err)
+
+```
+
+### #xample stderr log:
+
+```
+[BULD](name='lazy_apt_install/0', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 4)
+  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 4, in know_my_cli
+    ctl.lazy_apt_install('nano git proxychains4'.split())
+[CHCK][SKIP]
+
+[BULD](name='lazy_wget/1', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 6)
+  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 6, in know_my_cli
+    'toml pyyaml'.split())
+[CHCK][RUNN]
+
+[BULD](name='lazy_git/2', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 7)
+  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 7, in know_my_cli
+    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype','598b7a2b1201d138260c22119afd7b4d5449fe97')
+[CHCK][SKIP]
+```
+
+### Example summary log `Controller.pprint_stats`:
+
+```
++--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
+| name               | co_name     | lineno | skipped | cur_ms | run_ms | file                                             |
++--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
+| _PYPE_START        | None        | None   | -1      | -1     | -1     | None                                             |
+| lazy_apt_install/0 | know_my_cli | 4      | 1       | 35     | 4520   | /repos/shared/repos/pype/examples/know_my_cli.py |
+| lazy_wget/1        | know_my_cli | 6      | 0       | 6141   | 6141   | /repos/shared/repos/pype/examples/know_my_cli.py |
+| lazy_git/2         | know_my_cli | 7      | 1       | 8      | -1     | /repos/shared/repos/pype/examples/know_my_cli.py |
+| _PYPE_END          | None        | None   | -1      | -1     | -1     | None                                             |
++--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
+```
+
+## Listed Features
 
 - typical workflows
     - `.runtime_init()` to load runtime variables
@@ -147,7 +228,6 @@ via core functions:
         - optional double `checker(check_ctx)` after `run()` and `writer()`
     - `.lazy_*()` to register convenience workflows
     - `.export()` to make variables available
-
 
 - Functional low-level batteries: RuntimeObject(callee,caller) to enable low level composition
 of argument-less callables.
@@ -202,85 +282,3 @@ of argument-less callables.
     - watch for signal that triggers workload and sends back stats.
 
 
-
-## evaltime traceback for RuntimeObject
-
-
-This pytest function shows what's expected when an error-raising function
-is composed into the chain. on `x.call()`, the lambda funcs got executed
-and a traceback outlines the call chain that leads to the error.
-
-[TBC] adds optional echo stream to trace the whole RuntimeObject chain
-to the start of chain.
-
-```python
-import pytest
-from pype import RuntimeObject as RO
-def test_error(capfd):
-    myexe = Exception('foobar')
-    with pytest.raises(Exception) as einfo:
-        x = RO(None)
-        x = x.chain_with(lambda x:x)
-        x = x.chain_with(lambda x: (_ for _ in ()).throw(myexe))
-        x = x.chain_with(lambda x:[][1])
-        x = x.chain_with(lambda x:[x])
-        x.call()
-
-        '''
-        The above is equivalent to 
-        x = RO(None)
-        x = RO(x,lambda x: (_ for _ in ()).throw(myexe))
-        x = RO(x,lambda x:[][1])
-        x = RO(x,lambda x:[x])
-        x.call()
-        '''
-
-    assert einfo.value is myexe
-    expected = '''
-------------------------------
-Evaltime traceback:
-  File "/repos/shared/repos/pype/tests/test_base.py", line 14, in test_error
-    x = x.chain_with(lambda x: (_ for _ in ()).throw(myexe))
-  File "/repos/shared/repos/pype/tests/test_base.py", line 15, in test_error
-    x = x.chain_with(lambda x:[][1])
-  File "/repos/shared/repos/pype/tests/test_base.py", line 16, in test_error
-    x = x.chain_with(lambda x:[x])
-------------------------------
-'''
-    out, err = capfd.readouterr()
-    assert_similar_tb(expected, err)
-
-```
-
-### example stderr log:
-
-```
-[BULD](name='lazy_apt_install/0', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 4)
-  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 4, in know_my_cli
-    ctl.lazy_apt_install('nano git proxychains4'.split())
-[CHCK][SKIP]
-
-[BULD](name='lazy_wget/1', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 6)
-  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 6, in know_my_cli
-    'toml pyyaml'.split())
-[CHCK][RUNN]
-
-[BULD](name='lazy_git/2', code 'know_my_cli', file='/repos/shared/repos/pype/examples/know_my_cli.py', line 7)
-  File "/repos/shared/repos/pype/examples/know_my_cli.py", line 7, in know_my_cli
-    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype','598b7a2b1201d138260c22119afd7b4d5449fe97')
-[CHCK][SKIP]
-```
-
-### example summary log `Controller.pprint_stats`:
-
-```
-+--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
-| name               | co_name     | lineno | skipped | cur_ms | run_ms | file                                             |
-+--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
-| _PYPE_START        | None        | None   | -1      | -1     | -1     | None                                             |
-| lazy_apt_install/0 | know_my_cli | 4      | 1       | 35     | 4520   | /repos/shared/repos/pype/examples/know_my_cli.py |
-| lazy_wget/1        | know_my_cli | 6      | 0       | 6141   | 6141   | /repos/shared/repos/pype/examples/know_my_cli.py |
-| lazy_git/2         | know_my_cli | 7      | 1       | 8      | -1     | /repos/shared/repos/pype/examples/know_my_cli.py |
-| _PYPE_END          | None        | None   | -1      | -1     | -1     | None                                             |
-+--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
-```
