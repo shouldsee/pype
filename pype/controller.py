@@ -807,8 +807,9 @@ class Controller(object):
     def __getitem__(self,k):
         return self._state.__getitem__(k)
         
-    def export(self, k, v):
-        self._state[k] = ControllerNode(built=v,
+    def export(self, k, v, t=object):
+        self._state[k] = ControllerNode(
+            built=AppendTypeChecker(v,t),
             stack_ele=StackElement.from_frame(FRAME(1)))
     
     def init_cd(self, x):
@@ -1400,7 +1401,7 @@ def check_git_url_commit(url,commit,target_dir):
 
 def TypeCheckCaller(x, t):
     if not isinstance(x,t):
-        raise TypeError(f'Value must be of type {t} for {x}')
+        raise TypeError(f'Value must be of type {t} not {type(x)} for {x!r}')
     # assert isinstance(x,t),f'Type Checking failed, (t,x)
     return x
 
