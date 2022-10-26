@@ -1,6 +1,8 @@
 import pytest
 from pype import Controller,RO,s,THIS
 from pype import NonConcreteValueError
+from pype import PlaceHolder,ValueNotReadyError
+#from .examples.know_my_cli import know_my_cli
 #from .examples.know_my_cli import know_my_cli
 
 def test_know_my_cli():
@@ -154,12 +156,47 @@ Evaltime traceback:
 
 
 def test_strict_call():
-    with pytest.raises(NonConcreteValueError) as einfo:
+    '''
+    Now performs auto expansion of iterables
+    like dict,list,namedlist, even if they 
+    do not look like RuntimeObject as a whole.
+    '''
+    # with pytest.raises(NonConcreteValueError) as einfo:
+    if 1:
         ctl = Controller()
         x = RO(None)
         y = RO([x])[0]
         value = y.call()
+        assert value == None
+
     
+
+
+def test_ph_1(capfd):
+    with pytest.raises(ValueNotReadyError) as einfo:
+        input1 = PlaceHolder('input1')   
+        input1.built()
+
+    input1.put('123')
+    input1.built()
+
+    input1.put(RO('123'))
+    input1.built()
+
+def test_runtime_setters(self):
+    '###!!! [test] runtime_setter() and runtime_initer()'
+    if 0:
+        ctl.runtime_initer('GMX',  GMX, str)
+        ctl.RWC(run=lambda x:ctl.runtime_setter('PDB_ID',12))
+        ctl.RWC(run=lambda x:ctl.runtime_setter('PDC',12))    
+    # ctl.RWC(run=ctl.F('[dbg]{PDC}').chain_with(print).start_pdb())
+    # ctl.RWC(run=ctl.F('[dbg]{PDB_ID}').chain_with(print).start_pdb()
+
+
+        # ctl = Controller.from_func(lambda ctl,x:None,x=input1)
+        # ctl.run()
+        # assert isinstance()
+
 
 # if __name__=='__main__':
 #     ctl = Controller()

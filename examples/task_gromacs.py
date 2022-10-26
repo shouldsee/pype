@@ -3,22 +3,17 @@ REF: http://www.mdtutorials.com/gmx/lysozyme/02_topology.html
 # TODO: GRACE fails silently???
 Runtime: Approx 2 mins on a RTX3080
 '''
-from .depend_mol import ctl; ctl.build()
+from .depend_mol import know_gromacs
+from pype import Controller,s
 # from .depend_mol import check_write_single_target
+from pype import FRAME,fstr
 from pype import RuntimeObject as RO
+from pype import AppendTypeChecker as ATC
 from pype import check_write_single_target as CWST
 
 
 
 
-def lazy_grace_png(TARGET,ctl=ctl):
-    '''
-    call grace to generate png
-    '''
-    SRC = TARGET[:-len('.png')]
-    return ctl.RWC(CWST, check_ctx=TARGET, run=f'grace -nxy {SRC} -hdevice PNG -hardcopy -printfile {TARGET}')
-
-ctl.lazy_grace_png = lazy_grace_png
 
 '''
 Command line:
@@ -44,7 +39,26 @@ End your selection with an empty line or a zero.
  43  Lamb-non-Protein
 '''
 
-def build(ctl):
+# from pype import FRAME, RuntimeObject, THIS
+
+
+def build(ctl, GMX, PDB_ID):
+    '''
+    performs type check before start building
+    '''
+    ctl.runtime_initer('GMX',  GMX, str)
+    ctl.runtime_initer('PDB_ID',PDB_ID,str)
+    # ctl.runtime_setter['PDB_ID'] = ATC(PDB_ID,str)
+
+    def lazy_grace_png(TARGET):
+        '''
+        call grace to generate png
+        '''
+        SRC = TARGET[:-len('.png')]
+        return ctl.RWC(CWST, check_ctx=TARGET, run=f'grace -nxy {SRC} -hdevice PNG -hardcopy -printfile {TARGET}')
+
+    ctl.lazy_grace_png = lazy_grace_png
+
     def write_dep_file(ctx):
         with open('ions.mdp','w') as f:
             f.write('''
@@ -235,17 +249,32 @@ gen_vel                 = no        ; Velocity generation is off
     #### build time dict is delayed until "build"
     #### buildtime is different from runtime in
     #### buildtime is state of
-    ctl.runtime_setter['GMX'] = GMX = f'{ctl.nodes["gromacs"].built}/bin/gmx'
-    PDB_ID = ctl.runtime["PDB_ID"]
+    # ctl.runtime_setter['GMX'] = 
+    # ctl.runtime_setter['GMX'] = GMX = ctl.nodes["gromacs"].built+'/bin/gmx'
+    # PDB_ID = ctl.runtime["PDB_ID"]
 
 
     ### getting variable from vain.
     '''
     PDB_ID needs to be instantiate at runtime
     '''
-    ctl.lazy_wget( RO( ctl.runtime, "https://files.rcsb.org/download/{PDB_ID}.pdb"))
+    # print(GMX())
+    
+    # ctl.lazy_wget( ctl.runtime.chain_with(lambda x:'''https://files.rcsb.org/download/{eprint(PDB_ID)}.pdb''',x)))
+    ctl.lazy_wget( RO(ctl.runtime,'''https://files.rcsb.org/download/{PDB_ID}.pdb'''))
+    # ctl.RWC(run=lambda x:ctl.runtime_mutable['PDB_ID']:=12))
+
+
+    # ctl.RWC(run=lambda x:print(GMX.call()))
     ctl.RWC(run=write_dep_file)
-    ctl.RWC(run='{GMX} pdb2gmx -f {PDB_ID}.pdb -o {PDB_ID}_processed.gro -water spce -ff charmm27')
+    
+    ### Clean versioned backup files
+    ctl.RWC(run='rm -vf ./\#*')
+    ### [more complex control flow to save a broken run]
+    # ctl.RWC(run='rm -vf ./\#* ./*.gro ./*.top ')
+
+    # ctl.RWC(run= lambda x:s(f'{GMX()} pdb2gmx -f {PDB_ID()}.pdb -o {PDB_ID()}_processed.gro -water spce -ff charmm27'))
+    ctl.RWC(run= ('{GMX} pdb2gmx -f {PDB_ID}.pdb -o {PDB_ID}_processed.gro -water spce -ff charmm27'))
 
     ### adding periodic boundary
     '''
@@ -290,6 +319,32 @@ gen_vel                 = no        ; Velocity generation is off
     return ctl
 
 
-pipe = build(ctl)
-pipe.run(dict(PDB_ID='1PGB'))
-ctl.pprint_stats()
+
+from pype import NotInitObject,ValueNotReadyError, print_tb_stacks
+from pype import PlaceHolder
+
+def main():
+    ctl = Controller()
+
+    # ctl.runtime_setter['GMX'] = GMX = ctl.nodes["gromacs"].built+'/bin/gmx'
+    # PDB_ID = PlaceHolder()
+    pype1 = Controller.from_func(know_gromacs)
+    # PDB_ID = pype1.runtime["PDB_ID"]
+    PDB_ID = None
+    '''
+    Connecting pype 
+    '''
+    PDB_ID = PlaceHolder('PDB_ID')
+    pipe = Controller.from_func(build, 
+        GMX    = pype1.built["GMX"],
+        PDB_ID = PDB_ID.built)
+    # PDB_ID.set_pdb()
+
+    pype1.run(rundir='~/catsmile/prot2/build') 
+    for x in '1PGB 1AKI'.split():
+        PDB_ID.put(x)
+        # print(PDB_ID.built())
+        pipe.run(rundir='~/catsmile/prot2/build/', target_dir=PDB_ID.value)
+
+    pipe.pprint_stats()
+main()

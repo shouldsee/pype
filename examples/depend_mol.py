@@ -35,6 +35,7 @@ from pype import (
 
 from pype import check_write_single_target as CWST
 from pype import RuntimeObject as RO
+from pype import ControllerNode as CN
 
 
 import io
@@ -54,6 +55,7 @@ def know_gromacs(ctl):
     # CWST = check_write_single_target
     GROMACS_DGMX_GPU='CUDA'
     DGMX_THREAD_MPI='ON'
+    # ctl.init_cd()
 
     NCORE = multiprocessing.cpu_count() - 1
 #    NCORE = 4
@@ -81,26 +83,38 @@ def know_gromacs(ctl):
         MPICC=`which mpicc` MPICXX=`which mpic++`''')
     else:
         pass
-
-    TARGET_DIR = f'{os.getcwd()}/gromacs-tmpi'
+    TARGET_DIR = RO(ctl).rundir +'/gromacs-tmpi'
+    # TARGET_DIR = f'{os.getcwd()}/gromacs-tmpi'
     GMX = TARGET_DIR+'/bin/gmx'
+    # GMX = ctl.target_dir 
     if 1:
         x = ctl.lazy_wget('ftp://ftp.gromacs.org/pub/gromacs/gromacs-2022.tar.gz')
+        # print(x)
+        # import pdb; pdb.set_trace()
         x = x.built.call()
         RWC( CWST, x+'.done', run=f'''tar -xvf {x}; echo 1 >{x}.done''')
+        # assert 0
         # 'gromacs-tmpi'
         # Build and install thread-MPI GROMACS to your home directory.
         # Make sure the compiler toolchain matches that of mpi4py as best we can.
-        CFLAGS = f'../gromacs-2022 -DCMAKE_INSTALL_PREFIX={TARGET_DIR} -DGMX_THREAD_MPI={DGMX_THREAD_MPI} \
+        CFLAGS = lambda TARGET_DIR=TARGET_DIR:(
+            f'../gromacs-2022 -DCMAKE_INSTALL_PREFIX={TARGET_DIR()} -DGMX_THREAD_MPI={DGMX_THREAD_MPI} \
            -DGMX_GPU={GROMACS_DGMX_GPU} \
             -DCMAKE_C_COMPILER=`which mpicc` -DCMAKE_CXX_COMPILER=`which mpic++`'
+        )
 
-        RWC(CWST, GMX, (f'''
+        RWC(CWST, GMX, run=(lambda x,CFLAGS=CFLAGS,GMX=GMX:
+           [ 
+        print(GMX()),
+            s(f'''
         set -e
+        echo {GMX()} 1>&2
         mkdir -p build && cd build
-         cmake --trace {CFLAGS}
+         cmake {CFLAGS()}
          make -j{NCORE} install
-        '''), name ='gromacs', built=TARGET_DIR)
+        '''),
+        ][1]
+        ), name ='gromacs', built=TARGET_DIR)
 
         ### check cmake version for gromacs
         # Activate the GROMACS installation.
@@ -119,12 +133,18 @@ def know_gromacs(ctl):
         MANPATH=$(replace_in_path "${MANPATH}" "${GMXMAN}" "${OLD_GMXMAN}")
         '''
 
-        RWC(run=run_load_env_from_bash_script(f'{TARGET_DIR}/bin/GMXRC.bash', keys=config_extract_keys(template)))
+        RWC(run=run_load_env_from_bash_script(TARGET_DIR +"/bin/GMXRC.bash", keys=config_extract_keys(template)))
 
 
+    '''
+    This package is problematic and 
+    '''
+    ctl.lazy_pip_install('gmxapi'.split(),flags='install --upgrade -vvv')
+    # RWC(run=RO(None).start_pdb())
+    # ctl.state['GMX'] = CN(built=GMX)
+    ctl.export('GMX', GMX)
 
-    ctl.lazy_pip_install('gmxapi'.split())
-
+    # RWC(run=RO(None).start_pdb())
     return ctl
 
 def know_ngl(ctl):

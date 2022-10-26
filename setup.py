@@ -7,7 +7,7 @@ from distutils.core import setup
 import os,glob,sys
 config = dict(
 	name='pype',
-	version = '0.0.3',
+	version = '0.0.4',
     packages=['pype'],
 	include_package_data=True,
 	license='MIT',
@@ -20,7 +20,11 @@ config = dict(
 	'Programming Language :: Python :: 3.7',
 	],
 	install_requires=[
-	'toml','pyyaml','pydantic-yaml','prettytable','pydantic',
+		'toml',
+		'pyyaml','pydantic-yaml','prettytable','pydantic',
+        'filelock',
+		'namedlist',
+         #'typeguard',
 		# x.strip() for x in open("requirements.txt","r")
         # 	if x.strip() and not x.strip().startswith("#")
 	],
