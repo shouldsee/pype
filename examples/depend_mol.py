@@ -142,7 +142,7 @@ def know_gromacs(ctl):
     ctl.lazy_pip_install('gmxapi'.split(),flags='install --upgrade -vvv')
     # RWC(run=RO(None).start_pdb())
     # ctl.state['GMX'] = CN(built=GMX)
-    ctl.export('GMX', GMX, int)
+    ctl.export('GMX', GMX, str)
 
     # RWC(run=RO(None).start_pdb())
     return ctl

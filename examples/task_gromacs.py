@@ -335,16 +335,17 @@ def main():
     Connecting pype 
     '''
     PDB_ID = PlaceHolder('PDB_ID')
-    pipe = Controller.from_func(build, 
+    pype2 = Controller.from_func(build, 
         GMX    = pype1.built["GMX"],
         PDB_ID = PDB_ID.built)
     # PDB_ID.set_pdb()
 
     pype1.run(rundir='~/catsmile/prot2/build') 
+
     for x in '1PGB 1AKI'.split():
         PDB_ID.put(x)
         # print(PDB_ID.built())
-        pipe.run(rundir='~/catsmile/prot2/build/', target_dir=PDB_ID.value)
+        pype2.run(rundir='~/catsmile/prot2/build/', target_dir=PDB_ID.value)
 
-    pipe.pprint_stats()
+    pype2.pprint_stats()
 main()

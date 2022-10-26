@@ -657,7 +657,11 @@ def get_frame_lineno(frame, file=None, lineno=None,strip=True):
     # lnum = object.co_firstlineno - 1
     lnum = lineno - 1
     # pat = re.compile(r'^(\s*def\s)|(\s*async\s+def\s)|(.*(?<!\w)lambda(:|\s))|^(\s*@)')
-    pat = re.compile(r'^(.*ctl\..*\()|^(.*RWC\()')
+    pat = re.compile(
+        r'^(\s*def\s)|'
+        r'^(.*ctl\..*\()|'
+        r'^(.*RWC\()'
+        )
     lnum0 = lnum
     while lnum > 0:
         # print(repr(lines[lnum]))
@@ -809,7 +813,7 @@ class Controller(object):
         
     def export(self, k, v, t=object):
         self._state[k] = ControllerNode(
-            built=AppendTypeChecker(v,t),
+            built=AppendTypeChecker(v,t,FRAME(1)),
             stack_ele=StackElement.from_frame(FRAME(1)))
     
     def init_cd(self, x):
@@ -1003,7 +1007,7 @@ class Controller(object):
             '\nuse Controller.runtime_setter(k,v) instead!'
             '\nfor variables local to this pype.'
         )
-        self._runtime.__setitem__(k,AppendTypeChecker(v,t))
+        self._runtime.__setitem__(k,AppendTypeChecker(v,t,FRAME(1)))
         return (self,k,v,t)
         # return self._runtime
 
@@ -1015,7 +1019,7 @@ class Controller(object):
             '\nfor variables local to this pype.'
         )
         
-        self._runtime_copy.__setitem__(k,AppendTypeChecker(v,t))
+        self._runtime_copy.__setitem__(k,AppendTypeChecker(v,t,FRAME(1)))
         return (self,k,v,t)
         # return self._runtime_copy
 
@@ -1219,7 +1223,7 @@ class Controller(object):
         return self.register_node(
             check_write_2, check_ctx=target, run=_lazy_wget,
             name=name,
-             built=target)
+             built=target,)
 
     def lazy_apt_install(self, PACK,name=None):
         if name is None:
@@ -1405,10 +1409,10 @@ def TypeCheckCaller(x, t):
     # assert isinstance(x,t),f'Type Checking failed, (t,x)
     return x
 
-def AppendTypeChecker(x,t):
+def AppendTypeChecker(x,t,frame=None):
     '''
     Chaining a type-checker function
     '''
     if not isinstance(x, RuntimeObject):
-        x = RuntimeObject(x,None,FRAME(1))
-    return x.chain_with(TypeCheckCaller, t= t, _frame=FRAME(1))
+        x = RuntimeObject(x,None,DFRAME(frame))
+    return x.chain_with(TypeCheckCaller, t= t, _frame=DFRAME(frame))
