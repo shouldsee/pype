@@ -10,14 +10,14 @@ def know_my_cli(ctl, host, user, key, password_file):
 
     https://superuser.com/questions/1524610/detect-if-apt-get-update-is-necessary
     '''
-    ctl.runtime_initer('host',host,str)
-    ctl.runtime_initer('user',user,str)
-    ctl.runtime_initer('key',key,str)
+    ctl.rit('host',host,str)
+    ctl.rit('user',user,str)
+    ctl.rit('key',key,str)
     ctl.init_cd('./cli/')
     def load_pass(x):
         with open(password_file,'r') as f:
             v = yaml.safe_load(f.read())
-            ctl.runtime_setter("passwds",v,object) 
+            ctl.rset("passwds",v,object) 
         
     ctl.RWC(run=load_pass)
 
@@ -29,7 +29,7 @@ def know_my_cli(ctl, host, user, key, password_file):
     ctl.lazy_git_url_commit('https://github.com/shouldsee/pype',
     '598b7a2b1201d138260c22119afd7b4d5449fe97',
     'temp_pype')
-    SH_CONN = RO(ctl).rundir +'/connect-' + ctl.runtime['key'] +'.sh'
+    SH_CONN = ctl.ro.rundir +'/connect-' + ctl.R['key'] +'.sh'
     ctl.RWC(run = lambda rt:
         open( SH_CONN(),'w').write(
         f'''

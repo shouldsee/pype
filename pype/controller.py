@@ -22,27 +22,43 @@ def namedlist(*args,**kw):
 # from collections import OrderedDict,namedtuple
 from ._internals import make_SafeOrderedDict,SafeOrderedDict
 from filelock import FileLock
-def s(cmd,shell=True,raw=False):
+
+class PypeBase(object):
+    @property
+    def ro(self):return RO(self)
+
+def EPRINT(i=0):
+    v = i //100
+    if v==0:
+        # if i==0:
+        #     return eprint
+        
+        return sys.stderr.write
+    elif v==1:
+        return sys.stdout.write
+
+def s(cmd:str,shell=True,raw=False):
     if 'set -e' not in cmd:
         cmd = 'set -e; ' + cmd
 
     '''
     Might stuck
     '''
+    EPRINT()(f'[cmd]{cmd}\n')
     proc = subprocess.Popen(cmd, shell=shell, 
         # stderr=subprocess.PIPE,  ### problematic
         stderr=subprocess.STDOUT,
         stdout=subprocess.PIPE, 
         executable='/bin/bash',
         # encoding='utf-8'
-        )
+    )
 
     ret = io.StringIO()
     while proc.poll() is None:
         text = proc.stdout.readline(1024) 
         if not raw:
             text = text.decode()
-        sys.stdout.write(str(text))
+        EPRINT(110)(str(text))
         ret.write(str(text))
 
         # text = proc.stderr.readline(1024) 
@@ -356,6 +372,7 @@ class RuntimeObject(object):
         frame = FRAME(1)
         caller = (lambda x,key=key: x.__getitem__(RO(key,None, frame)() )  )
         return RuntimeObject(self, caller, frame)
+
 
     def __lt__(self,b):
         frame = FRAME(1)
@@ -872,7 +889,7 @@ class ValueNotReadyError(ValueError):
 #     x = AppendTypeChecker(x,ControllerNode)
 #     return x.chain_with(ParentBuiltChecker)
 
-class PlaceHolder(object):
+class PlaceHolder(PypeBase):
     # @classmethod
     def __init__(self,name,value=NotInitObject):
         self.name = name
@@ -905,14 +922,7 @@ class PlaceHolder(object):
         self.use_pdb = 1
         return self
 
-    
-    # def __new__(cls,name):
-    #     self = super().__new__()
-    #     self.name = name
-    #     self.value = NotInitObject
-    #     return self
 
-    # return 
 
 
 import functools
@@ -924,7 +934,8 @@ def rgetattr(obj, attr, *args):
         return getattr(obj, attr, *args)
     return functools.reduce(_getattr, [obj] + attr.split('.'))
 
-class Controller(object):
+
+class Controller(PypeBase):
 
 
     def __init__(self):
@@ -942,6 +953,7 @@ class Controller(object):
         self.init_cd(None)
         self.is_built= False
         self._is_compiled = False
+        
     @classmethod
     def from_func(cls, f, *args,**kwargs):
         ctl = cls()
@@ -951,8 +963,13 @@ class Controller(object):
     def use_pdb(self): 
         self._use_pdb = 1
 
-    def __getitem__(self,k):
-        return self._state.__getitem__(k)
+    # def __getitem__(self,k):
+    #     return self._state.__getitem__(k)
+    # class _RuntimeView(object)
+    @property
+    def R(self):
+        return self.runtime
+        
         
     def export(self, k, v, t=object):
         self._state[k] = ControllerNode(
@@ -1043,16 +1060,19 @@ class Controller(object):
             import pdb;pdb.set_trace()
 
 
-        def msg(head):
+        def msg(ep,head):
             f, filename, lineno = stack_ele
             co = f.f_code
-            eprint('')
-            eprint(f'{head}(name={name!r}, code {co.co_name!r}, file={co.co_filename!r}, line {lineno!r})')
-            eprint(f'  File "{filename!r}", line {lineno}, in {co.co_name})')
+            # eprint = EPRINT(1)
+            ep('\n')
+            ep(f'{head}(name={name!r}, code {co.co_name!r},'
+            f' file={co.co_filename!r}, line {lineno!r})\n')
+            ep(f'  File "{filename!r}", line {lineno}, in {co.co_name})\n')
             print_tb_stacks_2([stack_ele])
 
-        msg   ('[BULD]')
-        eprint('[CHCK]',end='')
+        #### important running information
+        msg   (EPRINT(10),'[BULD]')
+        EPRINT(10)('[CHCK]')
         check = RuntimeObject(check).call()
         '''
         Dangerous and needs a way to chain to the left?
@@ -1068,9 +1088,9 @@ class Controller(object):
             # print(f'[SKIP]({name},{co.co_name},)')
             # print(f'[SKIP]({name},{stack_ele})')
             # msg('[SKIP]')
-            eprint('[SKIP]')
+            EPRINT(10)('[SKIP]\n')
         else:
-            eprint('[RUNN]')
+            EPRINT(10)('[RUNN]\n')
             # msg('[RUNN]')
             # print(f'[RUNN]({name},{stack_ele})')
             # run(runtime)
@@ -1101,7 +1121,7 @@ class Controller(object):
             # x.add_row(xx)
             x.add_row([rgetattr(v,xn) for xn in x.field_names])        
         x.align='l'
-        eprint(x.get_string())
+        EPRINT(15)(x.get_string()+'\n')
         # pprint(self.meta)
 
     @property
@@ -1155,6 +1175,7 @@ class Controller(object):
         self._runtime.__setitem__(k,AppendTypeChecker(v,t,FRAME(1)))
         return (self,k,v,t)
         # return self._runtime
+    rit = runtime_initer
 
     # @property
     def runtime_setter(self,k,v,t=object):
@@ -1167,6 +1188,7 @@ class Controller(object):
         self._runtime_copy.__setitem__(k,AppendTypeChecker(v,t,FRAME(1)))
         return (self,k,v,t)
         # return self._runtime_copy
+    rset = runtime_setter
 
 
     def register_node(self, 
@@ -1240,6 +1262,7 @@ class Controller(object):
         os.makedirs(rundir) if not os.path.exists(rundir) else None
         
         self.rundir = rundir
+        self._runtime_copy['RUNDIR'] = rundir
 
         # rundir = RuntimeObject( (rundir, self._runtime), self.target_dir).call()
 
@@ -1254,7 +1277,7 @@ class Controller(object):
                 metabase = 'PYPE.json'
             meta_file = rundir +'/' +metabase
 
-        eprint(f'[AcquirngLock]{meta_file}')
+        EPRINT(5)(f'[AcquirngLock]{meta_file}\n')
         with FileLock(meta_file+'.lock'):
             self.meta = meta = PypeExecResultList(data=[])
             diskmeta = PypeExecResultList(data=[])
@@ -1267,7 +1290,7 @@ class Controller(object):
                 if not len(diskmeta.data):
                     raise ValueError('Empty Json') 
             except Exception as e:
-                eprint(f'[Controller.run] Unable to load metafile:{meta_file} {e}')
+                EPRINT(5)(f'[Controller.run] Unable to load metafile:{meta_file} {e}\n')
                 # raise e
 
             with open(meta_file,'w',1) as f:
@@ -1375,6 +1398,7 @@ class Controller(object):
         return self.register_node(
             check_write_2, check_ctx=target, run=_lazy_wget,
             name=name,
+            frame=FRAME(1),
              built=target,)
 
     def lazy_apt_install(self, PACK,name=None):
@@ -1407,8 +1431,9 @@ class Controller(object):
         # frame=FRAME(1))
 
 
-    def lazy_git_url_commit(self, url, commit, target_dir=None,
-    name=lambda x:f'lazy_git/{x}',
+    def lazy_git_url_commit(
+        self, url, commit, target_dir=None,
+        name=lambda x:f'lazy_git/{x}',
     ):
         '''
         fix cwd at runtime

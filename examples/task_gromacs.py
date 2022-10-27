@@ -310,7 +310,7 @@ gen_vel                 = no        ; Velocity generation is off
 
     ctl.RWC(run='echo "19\n0\n" | {GMX} energy -f npt.edr -o pressure.xvg')
     ctl.RWC(run='echo "25\n0\n" | {GMX} energy -f npt.edr -o density.xvg')
-    ctl.lazy_grace_png( 'density.xvg.png')
+    ctl.lazy_grace_png( 'density.xvg.png' )
 
     ctl.RWC(run='''{GMX} grompp -f md.mdp -c npt.gro -t npt.cpt -p topol.top -o md_0_1.tpr''')
     ctl.RWC(CWST,'md_0_1.gro',run='{GMX} mdrun -deffnm md_0_1 -nb gpu')
