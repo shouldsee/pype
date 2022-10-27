@@ -25,10 +25,59 @@ from filelock import FileLock
 def s(cmd,shell=True,raw=False):
     if 'set -e' not in cmd:
         cmd = 'set -e; ' + cmd
-    ret= subprocess.check_output(cmd,shell=shell,executable='/bin/bash')
-    if not raw:
-        ret = ret.decode()
-    return ret
+
+    '''
+    Might stuck
+    '''
+    proc = subprocess.Popen(cmd, shell=shell, 
+        # stderr=subprocess.PIPE,  ### problematic
+        stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE, 
+        executable='/bin/bash',
+        # encoding='utf-8'
+        )
+
+    ret = io.StringIO()
+    while proc.poll() is None:
+        text = proc.stdout.readline(1024) 
+        if not raw:
+            text = text.decode()
+        sys.stdout.write(str(text))
+        ret.write(str(text))
+
+        # text = proc.stderr.readline(1024) 
+        # if not raw:
+        #     text = text.decode()
+        # sys.stderr.write(str(text))     
+        # ret.write(str(text))
+
+
+    # text = proc.stdout.readline(1024) 
+    # if not raw:
+    #     text = text.decode()
+    # sys.stdout.write(str(text))
+    # ret.write(str(text))
+
+
+    ret.seek(0)
+    text = ret.read()
+    # if 'toml' in cmd:
+    #     print('[text]')
+    #     print(text)
+    #     print('[text]')
+    #     # print(cmd)
+    #     import pdb;pdb.set_trace()
+    return text
+ 
+    # ret= subprocess.check_output(cmd,shell=shell,
+    #     executable='/bin/bash',stderr=subprocess.STDOUT)
+    # if not raw:
+    #     ret = ret.decode()
+    #     # text = text.decode()
+
+    # sys.stdout.write(str(ret))
+    # return ret
+    
 CWD = os.getcwd
 
 def is_root():
@@ -81,7 +130,7 @@ def LINE( back = 0 ):
 def FILE( back = 0 ):
    return sys._getframe( back + 1 ).f_code.co_filename
 def FUNC( back = 0):
-    return sys._getframe( back + 1 ).f_code.co_name
+    return sys._getframe( back + 1 ).f_code.co_name    
 def WHERE( back = 0 ):
    frame = sys._getframe( back + 1 )
    return "%s/%s %s()" % ( os.path.basename( frame.f_code.co_filename ), 
@@ -524,24 +573,55 @@ NotInitObject = object()
 
 class YamlModel(YamlModelMixin, BaseModel):
     pass
-class PypeExecResult(YamlModel,extra=Extra.forbid):
+# class PypeExecResult(YamlModel,extra=Extra.forbid):
+#     name: str
+#     co_name: Optional[str ]
+#     suc: int = 1
+#     skipped: int = -1
+    
+#     last_run: datetime  = Field(default_factory=datetime.now)
+#     run_ms: int=-1
+
+#     last_check: datetime = Field(default_factory=datetime.now)
+#     cur_ms: int=-1
+
+#     file: Optional[str]
+#     lineno: Optional[int]
+#     # source: Optional[List[str]]
+#     source: List[str]=[]
+#     stdout: Optional[List[str]]
+#     stderr: Optional[List[str]]
+
+class MyBaseModel(YamlModel):
+    ts_init: datetime = Field(default_factory=datetime.now)
+
+
+class ExecResult(MyBaseModel):
+    suc: int = -1
+    dur_ms: int = -1
+    stdout: List[str] = []
+    stderr: List[str] = []
+    endtime: datetime  = Field(default_factory=datetime.now)
+
+class PypeExecResult(MyBaseModel,extra=Extra.forbid):
     name: str
     co_name: Optional[str ]
     suc: int = 1
     skipped: int = -1
-
-    last_run: datetime  = Field(default_factory=datetime.now)
-    run_ms: int=-1
-
-    last_check: datetime = Field(default_factory=datetime.now)
-    cur_ms: int=-1
-
+    
+    ### no file diffing for now
     file: Optional[str]
     lineno: Optional[int]
-    # source: Optional[List[str]]
     source: List[str]=[]
-    stdout: Optional[List[str]]
-    stderr: Optional[List[str]]
+
+    last_run: ExecResult = Field(default_factory=ExecResult)
+    save_run: ExecResult = Field(default_factory=ExecResult)
+    
+    # last_run: Optional[ExecResult] = None
+    # save_run: Optional[ExecResult] = None
+    # ExecResult()
+
+
 
 class PypeExecResultList(YamlModel,extra=Extra.forbid):
     data: List[PypeExecResult]
@@ -835,6 +915,15 @@ class PlaceHolder(object):
     # return 
 
 
+import functools
+def rgetattr(obj, attr, *args):
+    '''
+    [source]:https://stackoverflow.com/a/31174427/8083313
+    '''
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split('.'))
+
 class Controller(object):
 
 
@@ -995,11 +1084,13 @@ class Controller(object):
         is affected by check()
         '''
     def pprint_stats(self):
+
         x = PrettyTable()
         x.field_names = ["name", 
             "co_name", 
             # "source",
-            "lineno", "skipped","cur_ms", "run_ms","file"]        
+            "lineno", "skipped",
+            "last_run.dur_ms", "save_run.dur_ms","file"]        
         for v in self.meta.data:
             # xx = []
             # for xn in x.field_names:
@@ -1008,7 +1099,7 @@ class Controller(object):
             #     #     vv = '\n'.join(vv)
             #     xx.append(vv)                
             # x.add_row(xx)
-            x.add_row([getattr(v,xn) for xn in x.field_names])        
+            x.add_row([rgetattr(v,xn) for xn in x.field_names])        
         x.align='l'
         eprint(x.get_string())
         # pprint(self.meta)
@@ -1217,18 +1308,28 @@ class Controller(object):
                         err.seek(0)
                         disknode = diskmeta.datadict.get(k,None)
                         run_ms = None
-                        if (disknode is not None) and skipped:
-                            run_ms = disknode.run_ms
-                            last_run = disknode.last_run
-                            # print(f'[1]{run_ms}')
-                        else:
-                            if skipped:
-                                run_ms = -1
-                                last_run = datetime.fromtimestamp(0)
+
+                        last_run=ExecResult(
+                            suc=suc,
+                            dur_ms = cur_ms,                                
+                            stdout = out.read().splitlines(), 
+                            stderr = err.read().splitlines(),
+                            endtime=datetime.now()
+                        )
+                        if skipped:
+                            if (disknode is not None):
+                                # run_ms = disknode.run_ms
+                                # last_run = disknode.last_run
+                                save_run = disknode.save_run
                             else:
-                                run_ms = dtms
-                                last_run = datetime.now()
-                            # print(f'[2]{run_ms}')
+                                save_run = ExecResult()
+                                # run_ms = -1
+                                # last_run = datetime.fromtimestamp(0)
+                        else:
+                            save_run = last_run
+                        #     run_ms = dtms
+                        #     last_run = datetime.now()
+                        # print(f'[2]{run_ms}')
                         co  = v.stack_ele.frame.f_code
                         ret = PypeExecResult(
                             name   = v.name,
@@ -1236,18 +1337,15 @@ class Controller(object):
                             co_name= co.co_name,
                             # co_name=repr(v.run)[:30],
                             # co_name= v.run.__code__.co_name,
-                            skipped= skipped,
-                            last_run=last_run,
-                            # end_time = datetime.datetime.now(),
-                            run_ms = run_ms,
-                            cur_ms = cur_ms,
-                            stdout = out.read().splitlines(), 
-                            stderr = err.read().splitlines(),
+                            skipped =skipped,
                             file   = os.path.realpath(co.co_filename),
                             lineno = v.stack_ele.lineno,
                             source = (get_frame_lineno(*v.stack_ele)),
+                            last_run=last_run,
+                            save_run = save_run, 
                         )
                         push(ret)
+                
 
                 ret = PypeExecResult(
                     name='_PYPE_END',
