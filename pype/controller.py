@@ -66,7 +66,8 @@ def s(cmd:str,shell=True,raw=False):
         #     text = text.decode()
         # sys.stderr.write(str(text))     
         # ret.write(str(text))
-
+    rc = proc.returncode
+    assert rc==0,f'Exited with non-zero code:{rc}. Command {cmd!r}'
 
     # text = proc.stdout.readline(1024) 
     # if not raw:
@@ -1246,7 +1247,7 @@ class Controller(PypeBase):
         # self._runtime_copy = RO(self._runtime.copy(),None,FRAME(1))
         rets = []
 
-
+        # rundir0 = rundir
 
         if rundir is None:
             rundir = os.getcwd()
@@ -1256,7 +1257,7 @@ class Controller(PypeBase):
             Allow overridding
             '''
             self.init_cd(target_dir)
-
+            
         rundir = self.target_dir(rundir, self.runtime)
         rundir = os.path.realpath(rundir)
         os.makedirs(rundir) if not os.path.exists(rundir) else None
@@ -1268,6 +1269,8 @@ class Controller(PypeBase):
 
         ### upon running, needs to chdir to rundir
         ### always consult self.target_dir about which
+        # import pdb;pdb.set_trace()
+        self.oldpwd = os.getcwd()
         os.chdir(rundir)
 
         if os.path.isfile(rundir):
@@ -1376,6 +1379,7 @@ class Controller(PypeBase):
                 )
                 push(ret)
             self.is_built = True
+            os.chdir(self.oldpwd)
             return self.meta
 
 
@@ -1418,7 +1422,7 @@ class Controller(PypeBase):
             )
 
     def lazy_pip_install(self, TARGET_LIST,pre_cmd='',
-    flags='install --upgrade',
+    flags='install',
     name=lambda x:f'lazy_wget/{x}'):
         TARGETS = sjoin(TARGET_LIST)
         return self.RWC([is_pypack_installed, None], TARGET_LIST, f'''
