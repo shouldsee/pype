@@ -658,7 +658,7 @@ def print_tb_stacks_2(stacks:List[StackElement]):
 from parso import load_grammar,parse
 from parso.python.tree import PythonNode
 
-def get_frame_lineno(frame, file=None, lineno=None,strip=True):
+def get_frame_lineno(frame, file=None, lineno=None,strip=True,method ='parso'):
     '''
     runtime source file locating is dangerous after os.chdir
     weird because StackSummary does not seems vulnerable
@@ -684,7 +684,7 @@ def get_frame_lineno(frame, file=None, lineno=None,strip=True):
     # lnum = object.co_firstlineno - 1
     lnum = lineno - 1
 
-    method ='parso'
+    
     if method=='parso':
         par = load_grammar()
         #### [TBC] Possible optimisation by 
@@ -701,9 +701,6 @@ def get_frame_lineno(frame, file=None, lineno=None,strip=True):
             ret = lines[lnum:][x.start_pos[0]-1:x.end_pos[0]-1]
             # print(ret)
             # import pdb;pdb.set_trace()
-
-            # ret = ls
-            # return ls
             # return [xx.rstrip() for xx in x.get_code().splitlines()]
 
         
@@ -722,6 +719,8 @@ def get_frame_lineno(frame, file=None, lineno=None,strip=True):
             if pat.match(lines[lnum]): break
             lnum = lnum - 1
         ret = lines[lnum:lnum0+1]
+    else:
+        raise NotImplementedError
 
     if strip:
         ret = [x.rstrip() for x in ret]
