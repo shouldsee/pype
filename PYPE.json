@@ -1,145 +1,127 @@
 {
+  "ts_init": "2022-10-28T03:42:56.990459",
   "name": "_PYPE_START",
   "co_name": null,
   "suc": 1,
   "skipped": -1,
-  "last_run": "2022-10-27T02:22:01.939660",
-  "run_ms": -1,
-  "last_check": "2022-10-27T02:22:01.939668",
-  "cur_ms": -1,
   "file": null,
   "lineno": null,
   "source": [],
-  "stdout": null,
-  "stderr": null
+  "last_run": {
+    "ts_init": "2022-10-28T03:42:56.990476",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2022-10-28T03:42:56.990479"
+  },
+  "save_run": {
+    "ts_init": "2022-10-28T03:42:56.990484",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2022-10-28T03:42:56.990487"
+  }
 }
 {
-  "name": "lazy_apt_install/0",
-  "co_name": "know_my_cli",
+  "ts_init": "2022-10-28T03:42:56.994480",
+  "name": "lazy_wget/0",
+  "co_name": "know_ngl",
   "suc": 1,
   "skipped": 1,
-  "last_run": "1970-01-01T08:00:00",
-  "run_ms": -1,
-  "last_check": "2022-10-27T02:22:01.953099",
-  "cur_ms": 13,
-  "file": "/root/catsmile/pype/examples/know_my_cli.py",
-  "lineno": 11,
+  "file": "/root/catsmile/pype/examples/depend_mol.py",
+  "lineno": 151,
   "source": [
-    "    ctl.lazy_apt_install('nano git proxychains4'.split())"
+    "    ctl.lazy_pip_install('nglview'.split())"
   ],
-  "stdout": [],
-  "stderr": [
-    "",
-    "[BULD](name='lazy_apt_install/0', code 'know_my_cli', file='examples/know_my_cli.py', line 11)",
-    "  File \"'/root/catsmile/pype/examples/know_my_cli.py'\", line 11, in know_my_cli)",
-    "    ctl.lazy_apt_install('nano git proxychains4'.split())",
-    "[CHCK][SKIP]"
-  ]
+  "last_run": {
+    "ts_init": "2022-10-28T03:42:56.993056",
+    "suc": 1,
+    "dur_ms": 2,
+    "stdout": [],
+    "stderr": [
+      "",
+      "0it [00:00, ?it/s]",
+      "[BULD](name='lazy_wget/0', code 'know_ngl', file='/root/catsmile/pype/examples/depend_mol.py', line 151)",
+      "  File \"'/root/catsmile/pype/examples/depend_mol.py'\", line 151, in know_ngl)",
+      "    ctl.lazy_pip_install('nglview'.split())",
+      "[CHCK][SKIP]",
+      "",
+      "1it [00:00, 509.08it/s]"
+    ],
+    "endtime": "2022-10-28T03:42:56.993044"
+  },
+  "save_run": {
+    "ts_init": "2022-10-28T03:41:56.535973",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2022-10-28T03:41:56.535978"
+  }
 }
 {
-  "name": "lazy_wget/1",
-  "co_name": "know_my_cli",
-  "suc": 1,
-  "skipped": 0,
-  "last_run": "2022-10-27T02:22:05.296266",
-  "run_ms": 3342,
-  "last_check": "2022-10-27T02:22:05.296518",
-  "cur_ms": 3342,
-  "file": "/root/catsmile/pype/examples/know_my_cli.py",
-  "lineno": 12,
+  "ts_init": "2022-10-28T03:42:57.005966",
+  "name": "git/ngl",
+  "co_name": "know_ngl",
+  "suc": 0,
+  "skipped": 1,
+  "file": "/root/catsmile/pype/examples/depend_mol.py",
+  "lineno": 154,
   "source": [
-    "    ctl.lazy_pip_install('toml pyyaml'.split())"
+    "    x = ctl.lazy_git_url_commit('https://github.com/nglviewer/ngl','ffa0bacf433114bd5debaf08e3fb0cd8850daa64',name='git/ngl')"
   ],
-  "stdout": [],
-  "stderr": [
-    "",
-    "[BULD](name='lazy_wget/1', code 'know_my_cli', file='examples/know_my_cli.py', line 12)",
-    "  File \"'/root/catsmile/pype/examples/know_my_cli.py'\", line 12, in know_my_cli)",
-    "    ctl.lazy_pip_install('toml pyyaml'.split())",
-    "[CHCK][RUNN]"
-  ]
-}
-{
-  "name": "lazy_git/2",
-  "co_name": "know_my_cli",
-  "suc": 1,
-  "skipped": 0,
-  "last_run": "2022-10-27T02:22:06.990067",
-  "run_ms": 1693,
-  "last_check": "2022-10-27T02:22:06.990327",
-  "cur_ms": 1693,
-  "file": "/root/catsmile/pype/examples/know_my_cli.py",
-  "lineno": 13,
-  "source": [
-    "    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype',"
-  ],
-  "stdout": [],
-  "stderr": [
-    "",
-    "[BULD](name='lazy_git/2', code 'know_my_cli', file='examples/know_my_cli.py', line 13)",
-    "  File \"'/root/catsmile/pype/examples/know_my_cli.py'\", line 13, in know_my_cli)",
-    "    ctl.lazy_git_url_commit('https://github.com/shouldsee/pype',",
-    "[CHCK][RUNN]"
-  ]
-}
-{
-  "name": "_defaul_key_3",
-  "co_name": "know_my_cli",
-  "suc": 1,
-  "skipped": 0,
-  "last_run": "2022-10-27T02:22:06.991329",
-  "run_ms": 0,
-  "last_check": "2022-10-27T02:22:06.991409",
-  "cur_ms": 0,
-  "file": "/root/catsmile/pype/examples/know_my_cli.py",
-  "lineno": 16,
-  "source": [
-    "    ctl.RWC(run = lambda x:"
-  ],
-  "stdout": [],
-  "stderr": [
-    "",
-    "[BULD](name='_defaul_key_3', code 'know_my_cli', file='examples/know_my_cli.py', line 16)",
-    "  File \"'/root/catsmile/pype/examples/know_my_cli.py'\", line 16, in know_my_cli)",
-    "    ctl.RWC(run = lambda x:",
-    "[CHCK][RUNN]"
-  ]
-}
-{
-  "name": "connect.sh",
-  "co_name": "know_my_cli",
-  "suc": 1,
-  "skipped": 0,
-  "last_run": "2022-10-27T02:22:06.991934",
-  "run_ms": 0,
-  "last_check": "2022-10-27T02:22:06.991995",
-  "cur_ms": 0,
-  "file": "/root/catsmile/pype/examples/know_my_cli.py",
-  "lineno": 21,
-  "source": [
-    "    ctl.export('connect.sh', RO(ctl).rundir, str)"
-  ],
-  "stdout": [],
-  "stderr": [
-    "",
-    "[BULD](name='connect.sh', code 'know_my_cli', file='examples/know_my_cli.py', line 21)",
-    "  File \"'/root/catsmile/pype/examples/know_my_cli.py'\", line 21, in know_my_cli)",
-    "    ctl.export('connect.sh', RO(ctl).rundir, str)",
-    "[CHCK][RUNN]"
-  ]
-}
-{
-  "name": "_PYPE_END",
-  "co_name": null,
-  "suc": 1,
-  "skipped": -1,
-  "last_run": "2022-10-27T02:22:06.992180",
-  "run_ms": -1,
-  "last_check": "2022-10-27T02:22:06.992183",
-  "cur_ms": -1,
-  "file": null,
-  "lineno": null,
-  "source": [],
-  "stdout": null,
-  "stderr": null
+  "last_run": {
+    "ts_init": "2022-10-28T03:42:57.004218",
+    "suc": 0,
+    "dur_ms": 9,
+    "stdout": [
+      "https://github.com/nglviewer/ngl",
+      "fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.",
+      "Use '--' to separate paths from revisions, like this:",
+      "'git <command> [<revision>...] -- [<file>...]'",
+      "HEAD"
+    ],
+    "stderr": [
+      "",
+      "0it [00:00, ?it/s]",
+      "[BULD](name='git/ngl', code 'know_ngl', file='/root/catsmile/pype/examples/depend_mol.py', line 154)",
+      "  File \"'/root/catsmile/pype/examples/depend_mol.py'\", line 154, in know_ngl)",
+      "    x = ctl.lazy_git_url_commit('https://github.com/nglviewer/ngl','ffa0bacf433114bd5debaf08e3fb0cd8850daa64',name='git/ngl')",
+      "[CHCK][cmd]set -e; git -C ngl config --get remote.origin.url",
+      "[cmd]set -e; git -C ngl rev-parse HEAD",
+      "------------------------------",
+      "Evaltime traceback:",
+      "/root/catsmile/pype/pype/controller.py:543: UserWarning: [print_tb_frames,StackSummary] is not safe after os.chdir. StackSummary only shows relative path",
+      "  warnings.warn('[print_tb_frames,StackSummary] is not safe after os.chdir. StackSummary only shows relative path')",
+      "  File \"/root/catsmile/pype/pype/controller.py\", line 1584, in check_git_url_commit",
+      "    RO(None,sc(f'git -C {target_dir} rev-parse HEAD')).strip()",
+      "  File \"/root/catsmile/pype/pype/controller.py\", line 371, in strip",
+      "    def strip(self,): return RO(self, (lambda x:x.strip()))",
+      "  File \"/root/catsmile/pype/pype/controller.py\", line 394, in __eq__",
+      "    return RuntimeObject(self, caller)",
+      "  File \"/root/catsmile/pype/pype/controller.py\", line 398, in <lambda>",
+      "    caller = lambda x: x.__and__(RO(b)()) if x else False",
+      "------------------------------",
+      "------------------------------",
+      "Evaltime traceback:",
+      "  File \"/root/catsmile/pype/pype/controller.py\", line 400, in __and__",
+      "    return RuntimeObject(self, caller)",
+      "  File \"/root/catsmile/pype/pype/controller.py\", line 1078, in run_node_with_control",
+      "    check = RuntimeObject(check).call()",
+      "------------------------------",
+      "",
+      "0it [00:00, ?it/s]"
+    ],
+    "endtime": "2022-10-28T03:42:57.004189"
+  },
+  "save_run": {
+    "ts_init": "2022-10-28T03:42:00.327923",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2022-10-28T03:42:00.327936"
+  }
 }

@@ -14,6 +14,8 @@ from namedlist import namedlist as _namedlist
 from namedlist import FACTORY
 import collections
 from typeguard import typechecked
+from tqdm import tqdm 
+from ._internals import Spinner
 
 def namedlist(*args,**kw):
     x = _namedlist(*args,**kw)
@@ -1295,7 +1297,7 @@ class Controller(PypeBase):
             except Exception as e:
                 EPRINT(5)(f'[Controller.run] Unable to load metafile:{meta_file} {e}\n')
                 # raise e
-
+        with Spinner() as sp:
             with open(meta_file,'w',1) as f:
                 def push(ret):
                     self.meta.append(ret)
@@ -1309,7 +1311,7 @@ class Controller(PypeBase):
                 push(ret)
 
 
-                for k,v in self._state.items():
+                for k,v in tqdm(self._state.items()):
                     out = StdoutDup(io.StringIO())
                     err = StderrDup(io.StringIO())
                     v
@@ -1321,6 +1323,8 @@ class Controller(PypeBase):
                         # print(*v)
                         # print(type(v))
                         # print(f'[staring]{k}{v}')
+                        # with tqdm() as t:
+                        # def it():
                         checked = self.run_node_with_control(*v)
                         # print(f'[finishn]{k}{v}')
                     except Exception as e:

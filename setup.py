@@ -24,7 +24,7 @@ config = dict(
 		'pyyaml','pydantic-yaml','prettytable','pydantic',
 	        'filelock',
 		'namedlist',
-		'parso',
+		'parso','tqdm'
          #'typeguard',
 		# x.strip() for x in open("requirements.txt","r")
         # 	if x.strip() and not x.strip().startswith("#")
