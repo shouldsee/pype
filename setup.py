@@ -22,8 +22,9 @@ config = dict(
 	install_requires=[
 		'toml',
 		'pyyaml','pydantic-yaml','prettytable','pydantic',
-        'filelock',
+	        'filelock',
 		'namedlist',
+		'parso',
          #'typeguard',
 		# x.strip() for x in open("requirements.txt","r")
         # 	if x.strip() and not x.strip().startswith("#")

@@ -564,7 +564,7 @@ class StackElement(StackElement):
         return cls(
             frame,
             os.path.realpath(frame.f_code.co_filename),
-            int(frame.f_lineno))
+            int(frame.f_lineno),)
 
 # ControllerNode = namedtuple('ControllerNode','control check_ctx run ctx name built stack_ele')
 '''
@@ -630,6 +630,33 @@ def print_tb_stacks_2(stacks:List[StackElement]):
         for line in get_frame_lineno(*stack_ele):
             eprint(line)
 
+# # def configure_injection(binder):
+# #     binder.bind(FrameworkClass, FrameworkClass(my_func))
+
+# import parso.python.parser
+# from parso.python.parser import Parser
+# # import parso
+# class _myp(Parser):
+#     def _pop(self):
+#         tos = self.stack.pop()
+#         # If there's exactly one child, return that child instead of
+#         # creating a new node.  We still create expr_stmt and
+#         # file_input though, because a lot of Jedi depends on its
+#         # logic.
+#         if len(tos.nodes) == 1:
+#             new_node = tos.nodes[0]
+#         else:
+#             new_node = self.convert_node(tos.dfa.from_rule, tos.nodes)
+
+#         self.stack[-1].nodes.append(new_node)
+#         # assert 0
+
+
+# inject.configure(configure_injection)
+# # parso.python.parser.__dict__['Parser'] = _myp
+
+from parso import load_grammar,parse
+from parso.python.tree import PythonNode
 
 def get_frame_lineno(frame, file=None, lineno=None,strip=True):
     '''
@@ -656,18 +683,46 @@ def get_frame_lineno(frame, file=None, lineno=None,strip=True):
     #     raise OSError('could not find function definition')
     # lnum = object.co_firstlineno - 1
     lnum = lineno - 1
-    # pat = re.compile(r'^(\s*def\s)|(\s*async\s+def\s)|(.*(?<!\w)lambda(:|\s))|^(\s*@)')
-    pat = re.compile(
-        r'^(\s*def\s)|'
-        r'^(.*ctl\..*\()|'
-        r'^(.*RWC\()'
-        )
-    lnum0 = lnum
-    while lnum > 0:
-        # print(repr(lines[lnum]))
-        if pat.match(lines[lnum]): break
-        lnum = lnum - 1
-    ret = lines[lnum:lnum0+1]
+
+    method ='parso'
+    if method=='parso':
+        par = load_grammar()
+        #### [TBC] Possible optimisation by 
+        ### 1.use tokenizor
+        ### 2.specify ending lineno 
+        # x = par._tokenizer(lines[lnum:])
+        # pprint(list(x))
+        x = parse(''.join(lines[lnum:]))
+        x = [xx for xx in x.children if isinstance(xx,PythonNode)]
+        if not len(x):
+            ret = ['']
+        else:
+            x=x[0]
+            ret = lines[lnum:][x.start_pos[0]-1:x.end_pos[0]-1]
+            # print(ret)
+            # import pdb;pdb.set_trace()
+
+            # ret = ls
+            # return ls
+            # return [xx.rstrip() for xx in x.get_code().splitlines()]
+
+        
+    elif method == 'regex':
+        # pat = re.compile(r'^(\s*def\s)|(\s*async\s+def\s)|(.*(?<!\w)lambda(:|\s))|^(\s*@)')
+        pat = re.compile(
+            r'^(\s*def\s)|'
+            r'^(.*ctl\..*\()|'
+            r'^(.*RWC\()'
+            )
+        lnum0 = lnum
+        
+        while lnum > 0:
+            # print(repr(lines[lnum]))
+            print('[matching]'+lines[lnum])
+            if pat.match(lines[lnum]): break
+            lnum = lnum - 1
+        ret = lines[lnum:lnum0+1]
+
     if strip:
         ret = [x.rstrip() for x in ret]
     return ret

@@ -1,4 +1,22 @@
-# pype: A PYthon PlannEr
+#! https://zhuanlan.zhihu.com/p/577668335
+
+# 8514-pype: A PYthon PlannEr
+
+[CATSMILE-8514](http://catsmile.info/8514-pype-readme.html)
+
+[Github:shouldsee/pype](http://github.com/shouldsee/pype)
+
+## 前言
+
+- 目标: 
+- 结论: 
+- 背景与动机: 
+    - 替换bash脚本并加强其路棒性,简化其维护.
+- {备注:[], 关键词:[pipeline], 相关篇目:[], 完成度:爱好, 主要参考:[]} 
+- 展望方向: [] 
+- 相关篇目: [] 
+- CHANGLOG:
+    - 20221027 v0.0.4
 
 ## Installation:
 
@@ -18,6 +36,8 @@ via core functions:
     - `Controller.runtime_init(k,v,t)`: variable loading to fire callables against.
 - Debuggability: via tracebacks, logged stdout/stderr, and type checkers
 - Integrable: All of and more than python packages.
+- Simplicity: capture re-occurring patterns and replace with simpler syntaxes 
+- Stateful Laziness: Skip an operation if its target already achieved
 
 ### quick example: `python3 examples/know_my_cli.py`
 
@@ -281,4 +301,7 @@ of argument-less callables.
     - start some servers
     - watch for signal that triggers workload and sends back stats.
 
+### ToDo
+
+- [TBC] `print_frame_lineno()` adapt parso to save parsing
 
