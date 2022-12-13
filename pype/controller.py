@@ -13,7 +13,6 @@ SEXE = sys.executable
 from namedlist import namedlist as _namedlist
 from namedlist import FACTORY
 import collections
-from typeguard import typechecked
 from tqdm import tqdm 
 from ._internals import Spinner
 
