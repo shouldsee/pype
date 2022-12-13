@@ -632,7 +632,10 @@ class PypeExecResult(MyBaseModel,extra=Extra.forbid):
     ### no file diffing for now
     file: Optional[str]
     lineno: Optional[int]
-    source: List[str]=[]
+    source: List[str]=[] 
+        
+    # extra_dict: Dict[str,object] = {}
+    extra_dict: Dict = {}
 
     last_run: ExecResult = Field(default_factory=ExecResult)
     save_run: ExecResult = Field(default_factory=ExecResult)
@@ -640,7 +643,7 @@ class PypeExecResult(MyBaseModel,extra=Extra.forbid):
     # last_run: Optional[ExecResult] = None
     # save_run: Optional[ExecResult] = None
     # ExecResult()
-
+# PypeExecResult(name='123',extra_dictx={1:2})
 
 
 class PypeExecResultList(YamlModel,extra=Extra.forbid):
@@ -1232,7 +1235,7 @@ class Controller(PypeBase):
     def run(self,*args,**kwargs):
         return self.build(*args,**kwargs)
     def build(self, rundir=None, metabase=None, runtime= None, 
-        target_dir=NotInitObject):
+        target_dir=NotInitObject, extra_nodes = None):
         '''
         return: a list indicates whether each step is skipped or executed
 
@@ -1241,6 +1244,8 @@ class Controller(PypeBase):
 
         '''
         self._is_compiled = 1
+        if extra_nodes is None:
+            extra_nodes = []
         if runtime is None:
             runtime = {}
         self._runtime.update(runtime)
@@ -1303,7 +1308,13 @@ class Controller(PypeBase):
                     self.meta.append(ret)
                     f.write(ret.json(indent=2)+'\n')
                     return 
-
+                if extra_nodes:
+                    push(PypeExecResult(
+                       name='_PYPE_EXTRA_START',
+                       suc=1,                    
+                    ))                    
+                    for ret in extra_nodes:
+                        push(ret)
                 ret = PypeExecResult(
                     name='_PYPE_START',
                     suc=1,                    
@@ -1586,6 +1597,7 @@ def check_git_url_commit(url,commit,target_dir):
         # ).chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
 
     return caller
+
 
 
 def TypeCheckCaller(x, t):
