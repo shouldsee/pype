@@ -61,7 +61,7 @@ def minimal_ngl_html(loadFile):
     '''
 import os
 
-with open(__file__ + '.template.jinja2') as file_:
+with open(__file__ + '.template.html') as file_:
     TEMPLATE_NGL  = Template(file_.read(), undefined=jinja2.StrictUndefined)
 
 def get_ngl_html(loadFile, TARGET_FILE = None):

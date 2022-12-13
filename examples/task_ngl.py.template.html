@@ -4,29 +4,29 @@
   <title>NGL - webapp</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-  <link rel="stylesheet" href="css/font-awesome.min.css" />
-  <link rel="stylesheet" href="css/main.css" />
-  <link rel="subresource" href="css/light.css" />
-  <link rel="subresource" href="css/dark.css" />
+  <link rel="stylesheet" href="{{NGL_REL}}/css/font-awesome.min.css" />
+  <link rel="stylesheet" href="{{NGL_REL}}/css/main.css" />
+  <link rel="subresource" href="{{NGL_REL}}/css/light.css" />
+  <link rel="subresource" href="{{NGL_REL}}/css/dark.css" />
 </head>
 <body>
   <!-- NGL -->
-  <script src="../build/js/ngl.dev.js"></script>
+  <script src="{{NGL_REL}}/../dist/ngl.js"></script>
 
   <!-- UI -->
-  <script src="js/lib/signals.min.js"></script>
-  <script src="js/lib/tether.min.js"></script>
-  <script src="js/lib/colorpicker.min.js"></script>
-  <script src="js/ui/ui.js"></script>
-  <script src="js/ui/ui.extra.js"></script>
-  <script src="js/ui/ui.ngl.js"></script>
-  <script src="js/gui.js"></script>
+  <script src="{{NGL_REL}}/js/lib/signals.min.js"></script>
+  <script src="{{NGL_REL}}/js/lib/tether.min.js"></script>
+  <script src="{{NGL_REL}}/js/lib/colorpicker.min.js"></script>
+  <script src="{{NGL_REL}}/js/ui/ui.js"></script>
+  <script src="{{NGL_REL}}/js/ui/ui.extra.js"></script>
+  <script src="{{NGL_REL}}/js/ui/ui.ngl.js"></script>
+  <script src="{{NGL_REL}}/js/gui.js"></script>
 
   <script>
-    NGL.cssDirectory = "css/"
+    NGL.cssDirectory = "{{NGL_REL}}/css/"
     NGL.documentationUrl = "../build/docs/"
     NGL.examplesListUrl = "../build/scriptsList.json"
-    NGL.examplesScriptUrl = "./scripts/"
+    NGL.examplesScriptUrl = "{{NGL_REL}}/scripts/"
 
     // Datasources
     NGL.DatasourceRegistry.add("data", new NGL.StaticDatasource("../data/"))
@@ -45,6 +45,7 @@
 
       var load = NGL.getQuery("load")
       if (load) stage.loadFile(load, {defaultRepresentation: true})
+      // if (load) stage.loadFile(load, {defaultRepresentation: true})
 
       var script = NGL.getQuery("script")
       if (script) stage.loadScript("./scripts/" + script + ".js")

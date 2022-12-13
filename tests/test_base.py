@@ -1,6 +1,7 @@
 import pytest
 from pype import Controller,RO,s,THIS
 from pype import NonConcreteValueError
+from pype import PlaceHolder,ValueNotReadyError
 #from .examples.know_my_cli import know_my_cli
 
 def test_know_my_cli():
@@ -151,6 +152,17 @@ Evaltime traceback:
     assert_similar_tb(expected, err)    
 
     
+
+
+def test_ph_1(capfd):
+    with pytest.raises(ValueNotReadyError) as einfo:
+
+        input1 = PlaceHolder('input1')   
+        input1.built()
+
+        # ctl = Controller.from_func(lambda ctl,x:None,x=input1)
+        # ctl.run()
+        # assert isinstance()
 
 
 def test_strict_call():

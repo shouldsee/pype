@@ -136,6 +136,9 @@ def know_ngl(ctl):
     # ctl.RWC( CWST, './node_modules/ngl/dist/ngl.js', 'npm install ngl',name='init_ngl')
 
 
+# def run_server(ctl, GMX,  ):
+
+
 ctl = Controller()
 RO(ctl, know_ngl)()
 RO(ctl, know_gromacs)()
