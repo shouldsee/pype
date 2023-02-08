@@ -20,6 +20,7 @@
     - multi-thread safety: use absolute instead of relative path
     - fix lazy_url to use absolute path
     - fix Controller.lazy_git_url_commit()
+    - 需要检查的文件操作: open, shutil, os.chdir ,ShellRun
   - 20221027 v0.0.4
 
 ## Installation:

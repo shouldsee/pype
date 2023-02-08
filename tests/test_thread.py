@@ -24,9 +24,6 @@ def know_task_2(ctl):
     ctl.RWC(run='echo PWD: $PWD')
     ctl.RWC(run='echo done:task2')
 
-def know_task_wget(ctl):
-    ctl.RWC(run=lambda x:time.sleep(0.01))
-    ctl.lazy_wget(f'file://{tempfn}')
 
 
 
@@ -40,12 +37,31 @@ from threading import Thread
 
 
 def test_wget():
-    if os.path.exists('./build'):
-        shutil.rmtree('./build')
-    Controller.from_func(know_task_wget).build('./build/wget/')
-    ret = os.listdir('./build/wget/')
+    pdr = './build/wget/'
+    if os.path.exists(pdr):
+        shutil.rmtree(pdr)
+
+    def _f(ctl,force=False):
+        ctl.RWC(run=lambda x:time.sleep(0.01))
+        ctl.lazy_wget(f'file://{tempfn}',force=force)
+
+    ctl = Controller.from_func(_f)
+    ctl.build(pdr)
+    ret = os.listdir(pdr)
     pprint(ret)
     assert os.path.basename(tempfn) in ret,ret
+
+    mtime = os.path.getmtime(pdr+'/'+os.path.basename(tempfn))
+    ctl.build(pdr)
+    mtime_new = os.path.getmtime(pdr+'/'+os.path.basename(tempfn))
+    assert mtime == mtime_new, [mtime,mtime_new]
+
+    ctl = Controller.from_func(_f,force=True)
+    ctl.build(pdr)
+    mtime_new = os.path.getmtime(pdr+'/'+os.path.basename(tempfn))
+    assert mtime < mtime_new, [mtime,mtime_new]
+
+    # 'No update'
     # assert 0,ret
 
 

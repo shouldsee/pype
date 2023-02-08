@@ -119,11 +119,16 @@ def write_done_file_1(fn):
         f.write(toml.dumps(dict(DONE=1)))
 
 check_write_1 = check_done_file_1, write_done_file_1
-DefaultWriter = (lambda cctx:1)
-DefaultChecker = (lambda cctx:False)
+DefaultWriter = (lambda rt:1)
+DefaultChecker = (lambda rt:False)
 check_write_always= (DefaultChecker, DefaultWriter)
-check_write_2 = (lambda cctx:os.path.exists(cctx)), DefaultWriter
+
+check_write_2 = (lambda rt:os.path.exists(rt['_CHECK_CTX'])), DefaultWriter
+# check_write_2 = (lambda rt:[pprint(rt),os.path.exists(rt['_CHECK_CTX']),][-1]), DefaultWriter
+
 check_write_single_target = check_write_2
+CWST = check_write_single_target
+
 
 def is_pypack_installed(package_name_list,):
     # package_name = 'pandas'
@@ -433,45 +438,7 @@ class RuntimeObject(object):
 class RuntimeSideEffect(RuntimeObject):
     pass
 
-    # def call(self, stack=None, strict=True):        
-    #     '''
-    #     Strict mode does not allow chaining mulitple runtime chain.
-    #     A single call message must echo concrete values.
-        
-    #     running in strict mode promise the result of .call()
-    #     would be concrete values, where nostrict mode does not 
-    #     '''
-        
-    #     # frame = DFRAME(frame)
-    #     callee = self.callee
-    #     caller = self.caller
-    #     value = None
 
-    #     if stack is None:
-    #         stack = []
-    #         # print('[init.stack]')
-    #     self.stack = stack
-    #     stacknew = stack + [StackElement(self.frame,  self.filename, (self.lineno) )]
-
-    #     if isinstance(self, RuntimeSideEffect):
-    #         '''
-    #         If performing side effect, than execute
-    #         func when upstreaming
-    #         '''
-    #         caller(self)
-
-
-    #     if isinstance(self, RuntimeSideEffect):
-    #         '''
-    #         If performing side effect, than execute
-    #         func when upstreaming
-    #         '''
-    #         caller(self)
-
-    #     if isinstance(callee, RuntimeObject):
-    #         callee = callee.call(stacknew, strict)
-
-    #     return callee
 
 
 def TransformDummmyRun(*a,**kw):
@@ -958,6 +925,9 @@ class Controller(PypeBase):
     
     @property
     def runtime_cwd(self):return self.runtime['_CWD']
+    @property
+    def rcwd(self):return self.runtime['_CWD']
+
 
     def apply(self,x):
         return x(self)
@@ -1037,14 +1007,19 @@ class Controller(PypeBase):
         #### important running information
         msg   (EPRINT(10),'[BULD]')
         EPRINT(10)('[CHCK]')
-        check = RuntimeObject(check).call()
         '''
         Dangerous and needs a way to chain to the left?
         '''
+        # print(f'cctx {check_ctx}')
+        self.runtime_setter('_CHECK_CTX',check_ctx)
+        check = RuntimeObject(check, None, frame).call()
+
         if callable(check):
-            checked = check(check_ctx, )
+            checked = RO(runtime, check, frame).call()
+            # checked = check(check_ctx, )
         else:
             checked = check
+
         ## int is much safer than bool
         checked = int(checked)
         if checked==1:
@@ -1149,7 +1124,9 @@ class Controller(PypeBase):
             '\nfor variables local to this pype.'
         )
         
-        self._runtime_copy.__setitem__(k,AppendTypeChecker(v,t,FRAME(1)))
+        # self._runtime_copy.__setitem__(k,AppendTypeChecker(v,t,FRAME(1)))
+        self._runtime_copy.__setitem__(k,v)
+        # AppendTypeChecker(v,t,FRAME(1)))
         return (self,k,v,t)
         # return self._runtime_copy
     rset = runtime_setter
@@ -1359,7 +1336,7 @@ class Controller(PypeBase):
             return self.meta
 
 
-    def lazy_wget(self, url, target=None, name=lambda x:f'lazy_wget/{x}'):
+    def lazy_wget(self, url, target=None, force=False, name=lambda x:f'lazy_wget/{x}'):
         '''
         fix cwd at runtime
         '''
@@ -1381,7 +1358,8 @@ class Controller(PypeBase):
             shutil.move(target+'.temp',target)
 
         return self.register_node(
-            check_write_2, check_ctx=target, run=_lazy_wget,
+            None if force else check_write_2, 
+            check_ctx=target, run=_lazy_wget,
             name=name,
             frame=FRAME(1),
              built=target,)
