@@ -1427,8 +1427,9 @@ class Controller(PypeBase):
         #     target_prefix = CWD()
         # target_dir = os.path.join(target_prefix,os.path.basename(url))
         if target_dir is None:
-            # target_dir = self.runtime_cwd + '/' + os.path.basename(url)
-            target_dir = os.path.basename(url)
+            target_dir = self.runtime_cwd + '/' + os.path.basename(url)
+            # target_dir = os.path.basename(url)
+        target_dir = RO(target_dir, None, FRAME(1))
 
         return self.RWC(
             [check_git_url_commit(url,commit,target_dir),None],
@@ -1534,7 +1535,7 @@ def run_git_url_commit(url,commit,target_dir):
     '''
 
 
-    caller = ShellCaller(f'''
+    caller = target_dir.chain_with( lambda target_dir:ShellRun(f'''
     mkdir -p {target_dir} && cd {target_dir}
 
     git init .
@@ -1546,7 +1547,7 @@ def run_git_url_commit(url,commit,target_dir):
 
     git fetch origin --depth 1 {commit}
     git reset --hard FETCH_HEAD
-    ''')
+    '''))
     return caller
 
 def check_git_url_commit(url,commit,target_dir):
@@ -1554,18 +1555,21 @@ def check_git_url_commit(url,commit,target_dir):
     '''
     fetch a commit from a repository
     '''
+    
 
     caller =(
         (
             RO(target_dir, os.path.exists)
         ) &
         (
-            RO(None,ShellCaller(f'''git -C {target_dir} config --get remote.origin.url''')).strip()
+            # RO(None,ShellCaller(f'''git config --get remote.origin.url''',cwd=target_dir)).strip()
+            target_dir.chain_with(ShellRun,cmd='git config --get remote.origin.url',cwd=THIS)
             # .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
             ==url
         ) &
-        (
-            RO(None,ShellCaller(f'git -C {target_dir} rev-parse HEAD')).strip()
+        (   
+            # RO(None,ShellCaller(f'git rev-parse HEAD',cwd=target_dir)).strip()
+            target_dir.chain_with(ShellRun,cmd='git rev-parse HEAD',cwd=THIS)
             # .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
             ==commit)
         )

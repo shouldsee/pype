@@ -52,6 +52,11 @@ def test_wget():
 
 def test_git():
     tempgit = tempfile.mkdtemp()
+    ShellRun('''
+    git config --global user.email "you@example.com"
+    git config --global user.name "Your Name"
+    ''')
+
     ShellRun(f'git -C {tempgit} init .')
     ShellRun(f'git -C {tempgit} commit -m cm0 --allow-empty')
     tempgit_hash = ShellRun(f'git -C {tempgit} rev-parse HEAD').strip()
@@ -64,7 +69,7 @@ def test_git():
     def _f(ctl):
         ctl.RWC(run=lambda x:time.sleep(0.01))
         # ctl.lazy_git_url_commit(f'file://{tempgit}','HEAD')
-        ctl.lazy_git_url_commit(f'{tempgit}','master', tempgit_hash)
+        ctl.lazy_git_url_commit(f'{tempgit}', tempgit_hash)
 
     Controller.from_func(_f).build(pdr)
     ret = os.listdir(pdr)

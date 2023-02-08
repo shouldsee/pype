@@ -18,6 +18,8 @@
 - CHANGLOG:
   - 20230208 v0.0.6
     - multi-thread safety: use absolute instead of relative path
+    - fix lazy_url to use absolute path
+    - fix Controller.lazy_git_url_commit()
   - 20221027 v0.0.4
 
 ## Installation:
