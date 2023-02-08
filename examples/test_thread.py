@@ -2,8 +2,15 @@ from pype import Controller
 from pype import RuntimeObject as RO
 from datetime import datetime
 from pype import Controller
+from pype import ShellCaller,ShellRun
 import time
 import shutil
+
+import tempfile
+
+tempf  = tempfile.mkstemp()
+tempfn = tempf[1]
+
 def know_task_1(ctl):
     ctl.RWC(run=lambda x:time.sleep(1.))
     ctl.RWC(run='touch task1')
@@ -17,6 +24,12 @@ def know_task_2(ctl):
     ctl.RWC(run='echo PWD: $PWD')
     ctl.RWC(run='echo done:task2')
 
+def know_task_wget(ctl):
+    ctl.RWC(run=lambda x:time.sleep(0.01))
+    ctl.lazy_wget(f'file://{tempfn}')
+
+
+
 t1 = Controller.from_func(know_task_1)
 t2 = Controller.from_func(know_task_2)
 
@@ -24,6 +37,41 @@ from pprint import pprint
 import os,sys
 
 from threading import Thread
+
+
+def test_wget():
+    if os.path.exists('./build'):
+        shutil.rmtree('./build')
+    Controller.from_func(know_task_wget).build('./build/wget/')
+    ret = os.listdir('./build/wget/')
+    pprint(ret)
+    assert os.path.basename(tempfn) in ret,ret
+    # assert 0,ret
+
+
+
+def test_git():
+    tempgit = tempfile.mkdtemp()
+    ShellRun(f'git -C {tempgit} init .')
+    ShellRun(f'git -C {tempgit} commit -m cm0 --allow-empty')
+    tempgit_hash = ShellRun(f'git -C {tempgit} rev-parse HEAD').strip()
+    # assert 0,[tempgit_hash]
+
+    pdr = './build/git/'
+    if os.path.exists(pdr):
+        shutil.rmtree(pdr)
+
+    def _f(ctl):
+        ctl.RWC(run=lambda x:time.sleep(0.01))
+        # ctl.lazy_git_url_commit(f'file://{tempgit}','HEAD')
+        ctl.lazy_git_url_commit(f'{tempgit}','master', tempgit_hash)
+
+    Controller.from_func(_f).build(pdr)
+    ret = os.listdir(pdr)
+    pprint(ret)
+    assert os.path.basename(tempgit) in ret,ret
+    # assert 0,ret
+
 
 def test_thread_safe():
     if os.path.exists('./build'):

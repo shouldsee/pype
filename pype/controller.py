@@ -956,6 +956,8 @@ class Controller(PypeBase):
     @property
     def cwd(self):return self.rundir
     
+    @property
+    def runtime_cwd(self):return self.runtime['_CWD']
 
     def apply(self,x):
         return x(self)
@@ -1357,14 +1359,19 @@ class Controller(PypeBase):
             return self.meta
 
 
-    def lazy_wget(self, url, name=lambda x:f'lazy_wget/{x}'):
+    def lazy_wget(self, url, target=None, name=lambda x:f'lazy_wget/{x}'):
         '''
         fix cwd at runtime
         '''
         # print(type(url))
         # assert not isinstance(url,RO),RO
         url = RO(url)
-        target = RO(url, os.path.basename)#.start_pdb()
+        if target is None:
+            #### [v0.0.6,NOTE] if directly operating runtime files, needs to always be
+            #### absolute
+            target = self.runtime['_CWD'] +  '/' + RO(url, os.path.basename)
+            # target = RO(url, os.path.basename)
+        
         def _lazy_wget(ctx,url=url,target=target):
             url = url.call()
             target = target.call()
@@ -1420,6 +1427,7 @@ class Controller(PypeBase):
         #     target_prefix = CWD()
         # target_dir = os.path.join(target_prefix,os.path.basename(url))
         if target_dir is None:
+            # target_dir = self.runtime_cwd + '/' + os.path.basename(url)
             target_dir = os.path.basename(url)
 
         return self.RWC(
