@@ -48,6 +48,8 @@ def test_thread_safe():
 
     # ret = os.listdir('build/test-2/')
     pprint(ret)
+    assert 'task1' in ret[1]
+    assert 'task2' in ret[2]
 
 if __name__== '__main__':
     test_thread_safe()

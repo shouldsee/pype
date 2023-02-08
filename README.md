@@ -16,7 +16,9 @@
 - 展望方向: [] 
 - 相关篇目: [] 
 - CHANGLOG:
-    - 20221027 v0.0.4
+  - 20230208 v0.0.6
+    - multi-thread safety: use absolute instead of relative path
+  - 20221027 v0.0.4
 
 ## Installation:
 
@@ -238,6 +240,7 @@ Evaltime traceback:
 | _PYPE_END          | None        | None   | -1      | -1     | -1     | None                                             |
 +--------------------+-------------+--------+---------+--------+--------+--------------------------------------------------+
 ```
+
 
 ## Listed Features
 

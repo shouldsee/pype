@@ -7,7 +7,7 @@ from distutils.core import setup
 import os,glob,sys
 config = dict(
 	name='pype',
-	version = '0.0.5',
+	version = '0.0.6',
     packages=['pype'],
 	include_package_data=True,
 	license='MIT',
