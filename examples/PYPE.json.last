@@ -1,0 +1,101 @@
+{
+  "ts_init": "2023-02-08T12:43:17.223504",
+  "name": "_PYPE_START",
+  "co_name": null,
+  "suc": 1,
+  "skipped": -1,
+  "file": null,
+  "lineno": null,
+  "source": [],
+  "extra_dict": {},
+  "last_run": {
+    "ts_init": "2023-02-08T12:43:17.223525",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2023-02-08T12:43:17.223529"
+  },
+  "save_run": {
+    "ts_init": "2023-02-08T12:43:17.223534",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2023-02-08T12:43:17.223536"
+  }
+}
+{
+  "ts_init": "2023-02-08T12:43:17.257687",
+  "name": "_defaul_key_0",
+  "co_name": "know_task",
+  "suc": 1,
+  "skipped": 0,
+  "file": "/home/td/repos/pype/examples/test_run.py",
+  "lineno": 3,
+  "source": [
+    "\tctl.RWC(run='echo [hi]')"
+  ],
+  "extra_dict": {},
+  "last_run": {
+    "ts_init": "2023-02-08T12:43:17.256796",
+    "suc": 1,
+    "dur_ms": 29,
+    "stdout": [
+      "[hi]"
+    ],
+    "stderr": [
+      "",
+      "[BULD](name='_defaul_key_0', code 'know_task', file='/home/td/repos/pype/examples/test_run.py', line 3)",
+      "  File \"'/home/td/repos/pype/examples/test_run.py'\", line 3, in know_task)",
+      "\tctl.RWC(run='echo [hi]')",
+      "[CHCK][RUNN]",
+      "[cmd]set -e; echo [hi]"
+    ],
+    "endtime": "2023-02-08T12:43:17.256754"
+  },
+  "save_run": {
+    "ts_init": "2023-02-08T12:43:17.256796",
+    "suc": 1,
+    "dur_ms": 29,
+    "stdout": [
+      "[hi]"
+    ],
+    "stderr": [
+      "",
+      "[BULD](name='_defaul_key_0', code 'know_task', file='/home/td/repos/pype/examples/test_run.py', line 3)",
+      "  File \"'/home/td/repos/pype/examples/test_run.py'\", line 3, in know_task)",
+      "\tctl.RWC(run='echo [hi]')",
+      "[CHCK][RUNN]",
+      "[cmd]set -e; echo [hi]"
+    ],
+    "endtime": "2023-02-08T12:43:17.256754"
+  }
+}
+{
+  "ts_init": "2023-02-08T12:43:17.258346",
+  "name": "_PYPE_END",
+  "co_name": null,
+  "suc": 1,
+  "skipped": -1,
+  "file": null,
+  "lineno": null,
+  "source": [],
+  "extra_dict": {},
+  "last_run": {
+    "ts_init": "2023-02-08T12:43:17.258362",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2023-02-08T12:43:17.258369"
+  },
+  "save_run": {
+    "ts_init": "2023-02-08T12:43:17.258375",
+    "suc": -1,
+    "dur_ms": -1,
+    "stdout": [],
+    "stderr": [],
+    "endtime": "2023-02-08T12:43:17.258377"
+  }
+}

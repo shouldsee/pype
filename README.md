@@ -21,6 +21,8 @@
     - fix lazy_url to use absolute path
     - fix Controller.lazy_git_url_commit()
     - 需要检查的文件操作: open, shutil, os.chdir ,ShellRun
+    - fix tests
+    - add Controller.rcwd() for runtime access [NEED_TEST]
   - 20221027 v0.0.4
 
 ## Installation:

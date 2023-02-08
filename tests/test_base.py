@@ -3,6 +3,8 @@ from pype import Controller,RO,s,THIS
 from pype import NonConcreteValueError
 from pype import PlaceHolder,ValueNotReadyError
 import warnings
+
+Controller.rcwd
 #from .examples.know_my_cli import know_my_cli
 #from .examples.know_my_cli import know_my_cli
 

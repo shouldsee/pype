@@ -924,9 +924,13 @@ class Controller(PypeBase):
     def cwd(self):return self.rundir
     
     @property
-    def runtime_cwd(self):return self.runtime['_CWD']
+    def runtime_cwd_getter(self):return self.runtime['_CWD']
     @property
-    def rcwd(self):return self.runtime['_CWD']
+    def rcwd(self):
+        '''
+        Allow access only when compilation is done
+        '''
+        return self.runtime['_CWD'].call()
 
 
     def apply(self,x):
@@ -1405,7 +1409,7 @@ class Controller(PypeBase):
         #     target_prefix = CWD()
         # target_dir = os.path.join(target_prefix,os.path.basename(url))
         if target_dir is None:
-            target_dir = self.runtime_cwd + '/' + os.path.basename(url)
+            target_dir = self.runtime_cwd_getter + '/' + os.path.basename(url)
             # target_dir = os.path.basename(url)
         target_dir = RO(target_dir, None, FRAME(1))
 
