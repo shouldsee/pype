@@ -38,7 +38,7 @@ def EPRINT(i=0):
     elif v==1:
         return sys.stdout.write
 
-def s(cmd:str,shell=True,raw=False):
+def ShellRun(cmd:str,shell=True, raw=False, cwd= None):        
     if 'set -e' not in cmd:
         cmd = 'set -e; ' + cmd
 
@@ -51,6 +51,7 @@ def s(cmd:str,shell=True,raw=False):
         stderr=subprocess.STDOUT,
         stdout=subprocess.PIPE, 
         executable='/bin/bash',
+        cwd = cwd,
         # encoding='utf-8'
     )
 
@@ -96,6 +97,7 @@ def s(cmd:str,shell=True,raw=False):
     # sys.stdout.write(str(ret))
     # return ret
     
+s = ShellRun
 CWD = os.getcwd
 
 def is_root():
@@ -218,6 +220,7 @@ class RuntimeObject(object):
 
 
     def chain_with(self, other, *a,_frame=None,**kw):
+        assert not isinstance(other,RuntimeObject),'Only concrete callable allowed'
         # a =
         ct = []
         for k,v in kw.items():
@@ -233,6 +236,9 @@ class RuntimeObject(object):
                 a.append(None)
             ct.append((a.__setitem__, 0))
         setter, k = ct[0]
+
+
+        ### if the "other" is a runtime object, it is only ready when running 
         def caller(x):
             setter(k,x)
             return other(*a,**kw)
@@ -292,6 +298,10 @@ class RuntimeObject(object):
         if isinstance(callee, RuntimeObject):
             callee = callee.call(stacknew, strict)
 
+        if isinstance(caller, RuntimeObject):
+            caller = caller.call(stacknew, strict)
+
+
 
         try:
             # print_tb_frames([(self.frame, self.lineno)])
@@ -343,9 +353,6 @@ class RuntimeObject(object):
                 raise NonConcreteValueError(f'Must NOT return RuntimeObject {value}')
             if self._debug:
                 self.print_call_stack( stacknew,header=f'Result of call is still an RO empty placeholder. ')
-
-
-
             
                                 
                 # assert not isinstance(value, RO), f'Must NOT return RuntimeObject {value}'
@@ -481,61 +488,8 @@ RO = RuntimeObject
 from traceback import *
 from traceback import print_list,FrameSummary
 import linecache
-# from traceback import StackSummary
-# class MyStackSummary(StackSummary):
-#     """A stack of frames."""
-#     @classmethod
-#     def extract_from_codes(klass, co_gen, *, limit=None, lookup_lines=False,
-#             capture_locals=False):
-#         """Create a StackSummary from a traceback or stack object.
-
-#         :param frame_gen: A generator that yields (frame, lineno) tuples to
-#             include in the stack.
-#         :param limit: None to include all frames or the number of frames to
-#             include.
-#         :param lookup_lines: If True, lookup lines for each frame immediately,
-#             otherwise lookup is deferred until the frame is rendered.
-#         :param capture_locals: If True, the local variables from each frame will
-#             be captured as object representations into the FrameSummary.
-#         """
-#         frame_gen = co_gen
-#         assert lookup_lines is False
-#         if limit is None:
-#             limit = getattr(sys, 'tracebacklimit', None)
-#             if limit is not None and limit < 0:
-#                 limit = 0
-#         if limit is not None:
-#             if limit >= 0:
-#                 frame_gen = itertools.islice(frame_gen, limit)
-#             else:
-#                 frame_gen = collections.deque(frame_gen, maxlen=-limit)
-
-#         result = klass()
-#         fnames = set()
-#         # for f, lineno in frame_gen:
-#         for co in frame_gen:
-#             lineno = co.co_firstlineno
-#             filename = co.co_filename
-#             name = co.co_name
-#             f_locals = {}
-#             f_globals = {}
-#             fnames.add(filename)
-#             linecache.lazycache(filename, f_globals)
-#             # Must defer line lookups until we have called checkcache.
-#             result.append(FrameSummary(
-#                 filename, lineno, name, lookup_line=False, locals=f_locals))
-#         for filename in fnames:
-#             linecache.checkcache(filename)
-#         # If immediate lookup was desired, trigger lookups now.
-#         if lookup_lines:
-#             for f in result:
-#                 f.line
-#         return result
-    
-# def print_tb_codes(codes,limit=None,file=None):
-#     return print_list(MyStackSummary.extract_from_codes(codes,limit=limit), file=file)
-
 import warnings
+
 def print_tb_frames(frame_gen,limit=None,file=None):
     '''
     [DANGEROUS]
@@ -999,6 +953,8 @@ class Controller(PypeBase):
         return x
     @property
     def target_dir(self):return self._target_dir
+    @property
+    def cwd(self):return self.rundir
     
 
     def apply(self,x):
@@ -1009,6 +965,7 @@ class Controller(PypeBase):
         '''
         tocall = RO(self.runtime, lambda x,run=run:fstr(run,x))
         return tocall
+        
 
     def run_node_with_control(self, control, check_ctx, run, 
         runtime=None,name = None,built=None, stack_ele=None, 
@@ -1055,7 +1012,7 @@ class Controller(PypeBase):
             # tocall = RO(runtime, lambda x,run=run:run.format(**x))
             # tocall = RO(runtime, lambda x,run=run:fstr(run,x))
             tocall = self.F(run)
-            tocall = tocall.chain_with(s)
+            tocall = RO(runtime,  tocall.chain_with(ShellCaller), frame)
         else:
             run = RuntimeObject(run, None, frame).call()
             tocall = RO(runtime, run)
@@ -1233,6 +1190,7 @@ class Controller(PypeBase):
     RWC = register_node
     def run(self,*args,**kwargs):
         return self.build(*args,**kwargs)
+
     def build(self, rundir=None, metabase=None, runtime= None, 
         target_dir=NotInitObject, extra_nodes = None):
         '''
@@ -1270,14 +1228,16 @@ class Controller(PypeBase):
         
         self.rundir = rundir
         self._runtime_copy['RUNDIR'] = rundir
+        self._runtime_copy['_CWD']   = rundir
 
+        # assert 0
         # rundir = RuntimeObject( (rundir, self._runtime), self.target_dir).call()
 
         ### upon running, needs to chdir to rundir
         ### always consult self.target_dir about which
         # import pdb;pdb.set_trace()
         self.oldpwd = os.getcwd()
-        os.chdir(rundir)
+        # os.chdir(rundir)
 
         if os.path.isfile(rundir):
             meta_file = rundir
@@ -1287,7 +1247,7 @@ class Controller(PypeBase):
             meta_file = rundir +'/' +metabase
 
         EPRINT(5)(f'[AcquirngLock]{meta_file}\n')
-        with FileLock(meta_file+'.lock'):
+        with FileLock( meta_file+'.lock'):
             self.meta = meta = PypeExecResultList(data=[])
             diskmeta = PypeExecResultList(data=[])
             try:
@@ -1393,7 +1353,7 @@ class Controller(PypeBase):
                 )
                 push(ret)
             self.is_built = True
-            os.chdir(self.oldpwd)
+            # os.chdir(self.oldpwd)
             return self.meta
 
 
@@ -1475,13 +1435,20 @@ RWC = run_node_with_control
 class ShellCaller(object):
     def __init__(self, cmd):
         self.cmd = cmd
+        # self.cwd = 
     def __repr__(self):
         return f'ShellCaller(cmd="{self.cmd[:30]}")'
-    def __call__(self,ctx=None):
-        return s(self.cmd)
+
+    def __call__(self,ctx={}):
+        '''
+        v0.0.6
+        Runtime evaluation must be bound to a working directory to make thread-safe
+        '''
+        cwd = ctx.get('_CWD', None)
+        return ShellRun(self.cmd, cwd=cwd)
 
 
-sc = ShellCaller
+# sc = ShellCaller
 
 def PY_DUMP_ENV_TOML(TARGET,is_sorted=True,SEXE=SEXE):
     '''
@@ -1499,15 +1466,16 @@ open('{TARGET}','w'))
 EOF
 '''
 
-def run_load_env_from_bash_script(TARGET,keys=None):
+def run_load_env_from_bash_script(TARGET,keys=None, cwd=None):
     '''
     This runtime object loads the env state
     after running a bash script.
+
     '''
-    return RuntimeObject(TARGET).chain_with(lambda TARGET:s(f'''
+    return RuntimeObject(TARGET).chain_with(lambda TARGET:ShellRun(f'''
         set -e; set -o allexport; source {TARGET} &>/dev/null;
         {PY_DUMP_ENV_TOML("/dev/stdout")}
-        '''),).chain_with(io.StringIO).chain_with(run_load_toml_env, keys=keys, toml_file=THIS
+        '''),cwd=cwd).chain_with(io.StringIO).chain_with(run_load_toml_env, keys=keys, toml_file=THIS
         ).chain_with(TransformDummmyRun)
 
 # import os
@@ -1558,7 +1526,7 @@ def run_git_url_commit(url,commit,target_dir):
     '''
 
 
-    caller = sc(f'''
+    caller = ShellCaller(f'''
     mkdir -p {target_dir} && cd {target_dir}
 
     git init .
@@ -1584,12 +1552,12 @@ def check_git_url_commit(url,commit,target_dir):
             RO(target_dir, os.path.exists)
         ) &
         (
-            RO(None,sc(f'''git -C {target_dir} config --get remote.origin.url''')).strip()
+            RO(None,ShellCaller(f'''git -C {target_dir} config --get remote.origin.url''')).strip()
             # .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
             ==url
         ) &
         (
-            RO(None,sc(f'git -C {target_dir} rev-parse HEAD')).strip()
+            RO(None,ShellCaller(f'git -C {target_dir} rev-parse HEAD')).strip()
             # .chain_with(lambda x:[print(f'[git]{repr(x)}'),x,][1])
             ==commit)
         )
